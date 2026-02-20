@@ -1,0 +1,1752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ClearWay TTM — NSW v3.0</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700;800;900&family=Barlow:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --void:#060A10;--deep:#0A1220;--surface:#0F1C30;--panel:#142238;
+  --border:#1C3058;--border-hi:#2A4878;
+  --blue:#1860CC;--blue-hi:#3B8FFF;
+  --cyan:#00C8E0;--cyan-d:rgba(0,200,224,0.12);
+  --gold:#F0A500;--gold-d:rgba(240,165,0,0.12);
+  --green:#00C853;--green-d:rgba(0,200,83,0.12);
+  --amber:#FF8C00;--amber-d:rgba(255,140,0,0.12);
+  --red:#FF3B3B;--red-d:rgba(255,59,59,0.12);
+  --white:#EEF4FF;--grey:#5A7898;
+  --font:'Barlow Condensed',sans-serif;
+  --body:'Barlow',sans-serif;
+  --mono:'JetBrains Mono',monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:var(--body);background:var(--void);color:var(--white);min-height:100vh;overflow-x:hidden;}
+.app{display:flex;flex-direction:column;height:100vh;overflow:hidden;}
+
+/* TOPBAR */
+.topbar{background:var(--deep);border-bottom:1px solid var(--border);height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;flex-shrink:0;z-index:200;position:relative;}
+.brand{display:flex;align-items:center;gap:12px;}
+.brand-logo{width:28px;height:28px;background:linear-gradient(135deg,var(--blue),var(--cyan));border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:15px;}
+.brand-name{font-family:var(--font);font-size:19px;font-weight:800;letter-spacing:2px;text-transform:uppercase;}
+.brand-name span{color:var(--cyan);}
+.brand-tag{font-family:var(--mono);font-size:8px;color:var(--grey);letter-spacing:1.5px;text-transform:uppercase;border-left:1px solid var(--border);padding-left:12px;}
+.topbar-right{display:flex;align-items:center;gap:9px;}
+.chip{font-family:var(--mono);font-size:9px;letter-spacing:.8px;text-transform:uppercase;padding:3px 8px;border-radius:3px;border:1px solid var(--border);color:var(--grey);white-space:nowrap;}
+.chip.live{border-color:var(--green);color:var(--green);background:var(--green-d);}
+.chip.warn{border-color:var(--amber);color:var(--amber);background:var(--amber-d);}
+.chip.danger{border-color:var(--red);color:var(--red);background:var(--red-d);}
+.live-dot{width:5px;height:5px;border-radius:50%;background:var(--green);display:inline-block;margin-right:4px;animation:blink 2s infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.mob-toggle{display:none;background:none;border:none;color:var(--white);font-size:18px;cursor:pointer;}
+
+/* MAIN */
+.main{display:flex;flex:1;overflow:hidden;}
+
+/* SIDEBAR */
+.sidebar{width:210px;background:var(--deep);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto;flex-shrink:0;}
+.nav-sec{font-family:var(--mono);font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--grey);padding:12px 16px 5px;}
+.nav-item{display:flex;align-items:center;gap:8px;padding:8px 16px;cursor:pointer;transition:all .12s;border-left:2px solid transparent;font-size:12px;font-weight:500;color:var(--grey);}
+.nav-item:hover{background:rgba(30,96,204,.08);color:var(--white);border-left-color:var(--border-hi);}
+.nav-item.active{background:rgba(30,96,204,.14);color:var(--blue-hi);border-left-color:var(--blue-hi);}
+.nav-icon{font-size:13px;width:16px;text-align:center;flex-shrink:0;}
+.nbadge{margin-left:auto;font-family:var(--mono);font-size:8px;padding:1px 5px;border-radius:2px;}
+.nb-r{background:var(--red-d);color:var(--red);}
+.nb-a{background:var(--amber-d);color:var(--amber);}
+.nb-g{background:var(--green-d);color:var(--green);}
+.nb-c{background:var(--cyan-d);color:var(--cyan);}
+
+/* CONTENT */
+.content{flex:1;overflow-y:auto;background:var(--void);}
+.page{display:none;padding:24px;animation:fin .18s ease;}
+.page.active{display:block;}
+@keyframes fin{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+
+/* PAGE HEADER */
+.ph{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:22px;}
+.pt{font-family:var(--font);font-size:32px;font-weight:800;letter-spacing:1px;text-transform:uppercase;line-height:1;}
+.pt span{color:var(--cyan);}
+.ps{font-size:11px;color:var(--grey);margin-top:4px;}
+
+/* CARDS */
+.card{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:12px;}
+.card-title{font-family:var(--font);font-size:11px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:var(--cyan);margin-bottom:12px;}
+
+/* BADGES */
+.badge{font-family:var(--mono);font-size:8px;letter-spacing:.8px;text-transform:uppercase;padding:2px 6px;border-radius:2px;}
+.bg{background:var(--green-d);color:var(--green);border:1px solid rgba(0,200,83,.25);}
+.ba{background:var(--amber-d);color:var(--amber);border:1px solid rgba(255,140,0,.25);}
+.br{background:var(--red-d);color:var(--red);border:1px solid rgba(255,59,59,.25);}
+.bb{background:rgba(30,96,204,.15);color:var(--blue-hi);border:1px solid rgba(59,143,255,.25);}
+.bc{background:var(--cyan-d);color:var(--cyan);border:1px solid rgba(0,200,224,.25);}
+.bx{background:rgba(90,120,152,.15);color:var(--grey);border:1px solid rgba(90,120,152,.25);}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:4px;border:none;cursor:pointer;font-family:var(--font);font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;transition:all .12s;}
+.btn-p{background:var(--blue);color:var(--white);}
+.btn-p:hover{background:var(--blue-hi);}
+.btn-g{background:var(--gold);color:var(--void);}
+.btn-g:hover{background:#FFB800;}
+.btn-o{background:transparent;color:var(--grey);border:1px solid var(--border);}
+.btn-o:hover{border-color:var(--blue-hi);color:var(--blue-hi);}
+.btn-r{background:var(--red-d);color:var(--red);border:1px solid rgba(255,59,59,.3);}
+.btn-r:hover{background:rgba(255,59,59,.25);}
+.btn-c{background:var(--cyan-d);color:var(--cyan);border:1px solid rgba(0,200,224,.3);}
+.btn-c:hover{background:rgba(0,200,224,.2);}
+.btn-sm{padding:5px 11px;font-size:9px;}
+
+/* FORMS */
+.fg{margin-bottom:14px;}
+.fl{display:block;font-family:var(--mono);font-size:8px;letter-spacing:1.5px;text-transform:uppercase;color:var(--grey);margin-bottom:5px;}
+.req{color:var(--red);margin-left:2px;}
+.fi,.fs,.ft{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:8px 11px;color:var(--white);font-family:var(--body);font-size:12px;transition:border-color .12s;outline:none;}
+.fi:focus,.fs:focus,.ft:focus{border-color:var(--blue-hi);}
+.fs option{background:var(--surface);}
+.ft{resize:vertical;min-height:75px;}
+
+/* OPTION CARDS */
+.ogrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-top:8px;}
+.ocard{background:var(--surface);border:2px solid var(--border);border-radius:7px;padding:12px;cursor:pointer;transition:all .12s;text-align:center;}
+.ocard:hover{border-color:var(--blue-hi);background:rgba(30,96,204,.08);}
+.ocard.sel{border-color:var(--cyan);background:var(--cyan-d);}
+.ocard.multi-sel{border-color:var(--blue-hi);background:rgba(30,96,204,.1);}
+.oi{font-size:24px;margin-bottom:6px;}
+.ol{font-family:var(--font);font-size:12px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;}
+.od{font-size:10px;color:var(--grey);margin-top:2px;line-height:1.4;}
+
+/* WIZARD */
+.wprog{display:flex;align-items:center;margin-bottom:24px;}
+.wstep{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:8px;letter-spacing:1px;text-transform:uppercase;color:var(--grey);flex:1;}
+.wstep.active{color:var(--cyan);}
+.wstep.done{color:var(--green);}
+.snum{width:20px;height:20px;border-radius:50%;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:9px;flex-shrink:0;}
+.wstep.active .snum{border-color:var(--cyan);background:var(--cyan-d);color:var(--cyan);}
+.wstep.done .snum{border-color:var(--green);background:var(--green-d);color:var(--green);}
+.scon{flex:1;height:1px;background:var(--border);margin:0 5px;}
+.wq{font-family:var(--font);font-size:18px;font-weight:700;color:var(--white);margin-bottom:4px;}
+.wh{font-size:11px;color:var(--grey);margin-bottom:14px;line-height:1.5;}
+
+/* GRIDS */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+
+/* STAT CARDS */
+.sc{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:16px;}
+.sv{font-family:var(--font);font-size:38px;font-weight:800;line-height:1;}
+.sl{font-family:var(--mono);font-size:8px;letter-spacing:1.5px;text-transform:uppercase;color:var(--grey);margin-top:4px;}
+
+/* CHECKLIST */
+.ci{display:flex;align-items:flex-start;gap:9px;padding:9px 0;border-bottom:1px solid var(--border);}
+.ci:last-child{border-bottom:none;}
+.cb{width:17px;height:17px;border-radius:3px;border:2px solid var(--border-hi);flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .12s;margin-top:1px;}
+.cb.done{background:var(--green);border-color:var(--green);}
+.cb.done::after{content:'✓';font-size:10px;color:var(--void);font-weight:700;}
+.ct{font-size:11px;font-weight:600;}
+.cs{font-size:10px;color:var(--grey);margin-top:2px;line-height:1.4;}
+
+/* TGS RESULT */
+.tgs-hero{background:linear-gradient(135deg,var(--cyan-d),rgba(30,96,204,.08));border:1px solid var(--cyan);border-radius:9px;padding:20px;margin-top:18px;}
+.tgs-code{font-family:var(--font);font-size:48px;font-weight:900;color:var(--cyan);letter-spacing:2px;line-height:1;}
+.tgs-name{font-family:var(--font);font-size:16px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-top:3px;}
+.tgs-desc{font-size:11px;color:var(--grey);margin-top:6px;line-height:1.6;}
+.dev-grid{margin-top:14px;display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:6px;}
+.dev-item{background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:8px 10px;}
+.dev-qty{font-family:var(--font);font-size:18px;font-weight:800;color:var(--gold);}
+.dev-n{font-size:9px;color:var(--grey);margin-top:1px;}
+
+/* ALERTS */
+.alert{display:flex;align-items:flex-start;gap:9px;padding:10px 13px;border-radius:5px;margin-bottom:10px;font-size:11px;line-height:1.5;}
+.al-w{background:var(--amber-d);border:1px solid rgba(255,140,0,.3);color:#FFB84D;}
+.al-d{background:var(--red-d);border:1px solid rgba(255,59,59,.3);color:#FF7070;}
+.al-i{background:rgba(30,96,204,.12);border:1px solid rgba(59,143,255,.25);color:var(--blue-hi);}
+.al-s{background:var(--green-d);border:1px solid rgba(0,200,83,.3);color:var(--green);}
+.al-c{background:var(--cyan-d);border:1px solid rgba(0,200,224,.3);color:var(--cyan);}
+.alert-icon{font-size:14px;flex-shrink:0;margin-top:1px;}
+
+/* JOB BAR */
+.jbar{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:10px 16px;display:flex;align-items:center;gap:18px;margin-bottom:18px;flex-wrap:wrap;}
+.jf-l{font-family:var(--mono);font-size:7px;letter-spacing:1.5px;text-transform:uppercase;color:var(--grey);}
+.jf-v{font-family:var(--font);font-size:14px;font-weight:700;letter-spacing:.5px;margin-top:1px;}
+
+/* TABS */
+.tabs{display:flex;border-bottom:1px solid var(--border);margin-bottom:18px;}
+.tab{padding:8px 16px;font-family:var(--font);font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--grey);cursor:pointer;border-bottom:2px solid transparent;transition:all .12s;margin-bottom:-1px;}
+.tab:hover{color:var(--white);}
+.tab.active{color:var(--cyan);border-bottom-color:var(--cyan);}
+
+/* LOG ROW */
+.lr{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--border);font-size:11px;}
+.lr:last-child{border-bottom:none;}
+.lt{font-family:var(--mono);font-size:9px;color:var(--grey);width:40px;flex-shrink:0;}
+
+/* PHOTO ZONE */
+.pz{border:2px dashed var(--border-hi);border-radius:7px;padding:24px;text-align:center;cursor:pointer;transition:all .12s;color:var(--grey);}
+.pz:hover{border-color:var(--blue-hi);background:rgba(30,96,204,.05);color:var(--blue-hi);}
+
+/* PACK */
+.pack-section{border:1px solid var(--border);border-radius:7px;overflow:hidden;margin-bottom:9px;}
+.pack-hdr{background:var(--surface);padding:10px 13px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;}
+.pack-title{font-family:var(--font);font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;}
+.pack-bar{height:3px;background:var(--border);}
+.pack-fill{height:100%;background:var(--green);transition:width .3s;}
+.pack-body{padding:0 13px;max-height:0;overflow:hidden;transition:max-height .3s;}
+
+/* COMMS */
+.cm{padding:9px 0;border-bottom:1px solid var(--border);}
+.cm-hdr{display:flex;align-items:center;gap:7px;margin-bottom:4px;}
+.ava{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0;}
+.cm-name{font-size:11px;font-weight:600;}
+.cm-time{font-family:var(--mono);font-size:8px;color:var(--grey);margin-left:auto;}
+.cm-body{font-size:11px;color:var(--grey);padding-left:31px;line-height:1.5;}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-track{background:var(--deep);}
+::-webkit-scrollbar-thumb{background:var(--border-hi);border-radius:2px;}
+
+/* BRIEFING */
+.brief-wrap{overflow:hidden;border-radius:9px;}
+.brief-slider{display:flex;transition:transform .35s cubic-bezier(.4,0,.2,1);}
+.bcard{min-width:100%;padding:28px;background:linear-gradient(135deg,var(--panel),var(--surface));border:1px solid var(--border);border-radius:9px;display:flex;flex-direction:column;align-items:center;text-align:center;}
+.bc-icon{font-size:48px;margin-bottom:14px;}
+.bc-title{font-family:var(--font);font-size:20px;font-weight:800;text-transform:uppercase;letter-spacing:1px;margin-bottom:7px;}
+.bc-body{font-size:13px;color:var(--grey);line-height:1.6;max-width:460px;}
+.bc-hi{color:var(--cyan);font-weight:600;}
+.bc-wa{color:var(--amber);font-weight:600;}
+.bc-da{color:var(--red);font-weight:600;}
+.brief-dots{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:14px;}
+.bdot{width:6px;height:6px;border-radius:50%;background:var(--border-hi);cursor:pointer;transition:all .2s;}
+.bdot.active{background:var(--cyan);transform:scale(1.3);}
+
+/* SCORE RING */
+.score-ring{position:relative;display:inline-block;}
+.score-ring svg{transform:rotate(-90deg);}
+.score-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.score-num{font-family:var(--font);font-size:40px;font-weight:900;color:var(--green);line-height:1;}
+.score-lbl{font-family:var(--mono);font-size:8px;color:var(--grey);letter-spacing:1px;margin-top:2px;}
+.streak{display:inline-flex;align-items:center;gap:5px;background:var(--gold-d);border:1px solid rgba(240,165,0,.3);border-radius:20px;padding:5px 11px;font-family:var(--font);font-size:12px;font-weight:700;color:var(--gold);}
+
+/* WEATHER */
+.wx{background:linear-gradient(135deg,rgba(0,200,224,.06),rgba(30,96,204,.1));border:1px solid rgba(0,200,224,.2);border-radius:8px;padding:15px;}
+.wx-temp{font-family:var(--font);font-size:34px;font-weight:800;color:var(--white);line-height:1;}
+.wx-desc{font-size:11px;color:var(--grey);margin-top:3px;}
+.wx-g{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:11px;}
+.wx-item{text-align:center;}
+.wx-val{font-family:var(--font);font-size:15px;font-weight:700;}
+.wx-key{font-family:var(--mono);font-size:7px;color:var(--grey);letter-spacing:1px;text-transform:uppercase;margin-top:2px;}
+
+/* TOOLS BAR */
+.tools-bar{display:flex;gap:7px;margin-bottom:18px;flex-wrap:wrap;}
+.tbtn{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;background:var(--surface);border:1px solid var(--border);border-radius:4px;cursor:pointer;font-family:var(--mono);font-size:8px;letter-spacing:1px;text-transform:uppercase;color:var(--grey);transition:all .12s;white-space:nowrap;}
+.tbtn:hover{border-color:var(--cyan);color:var(--cyan);background:var(--cyan-d);}
+
+/* MODAL */
+.modal{position:fixed;inset:0;background:rgba(6,10,16,.88);z-index:500;display:none;align-items:center;justify-content:center;padding:18px;}
+.modal.open{display:flex;}
+.mbox{background:var(--panel);border:1px solid var(--border);border-radius:11px;padding:24px;width:100%;max-width:500px;max-height:80vh;overflow-y:auto;}
+.mt{font-family:var(--font);font-size:18px;font-weight:800;text-transform:uppercase;letter-spacing:1px;margin-bottom:18px;color:var(--cyan);}
+
+/* ADVISOR */
+.adv-wrap{max-width:660px;margin:0 auto;}
+.adv-prog{height:2px;background:var(--border);border-radius:1px;margin-bottom:22px;overflow:hidden;}
+.adv-bar{height:100%;background:linear-gradient(90deg,var(--cyan),var(--blue-hi));border-radius:1px;transition:width .4s ease;}
+.adv-card{background:linear-gradient(135deg,var(--panel),var(--surface));border:1px solid var(--border);border-radius:11px;padding:28px;}
+.adv-step{font-family:var(--mono);font-size:8px;color:var(--cyan);letter-spacing:2px;text-transform:uppercase;margin-bottom:9px;}
+.adv-q{font-family:var(--font);font-size:20px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--white);margin-bottom:4px;}
+.adv-hint{font-size:11px;color:var(--grey);margin-bottom:17px;line-height:1.5;}
+.res-product{font-family:var(--font);font-size:26px;font-weight:900;color:var(--gold);letter-spacing:1px;text-transform:uppercase;}
+.res-specs{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:14px;}
+.res-spec{background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:9px;}
+.rsl{font-family:var(--mono);font-size:7px;color:var(--grey);letter-spacing:1px;text-transform:uppercase;}
+.rsv{font-family:var(--font);font-size:14px;font-weight:700;margin-top:2px;}
+
+/* AI ADVISOR */
+#ai-wrap{position:fixed;bottom:14px;left:226px;z-index:300;width:310px;}
+.ai-toggle{background:linear-gradient(135deg,var(--blue),var(--cyan));border-radius:20px;padding:7px 14px;cursor:pointer;display:flex;align-items:center;gap:6px;font-family:var(--font);font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--void);box-shadow:0 4px 18px rgba(0,200,224,.28);border:none;white-space:nowrap;}
+.ai-box{background:var(--panel);border:1px solid rgba(0,200,224,.3);border-radius:11px;overflow:hidden;display:none;margin-bottom:9px;}
+.ai-hdr{background:linear-gradient(135deg,rgba(0,200,224,.15),rgba(30,96,204,.15));padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.ai-hdr-t{font-family:var(--font);font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--cyan);}
+.ai-msgs{padding:12px;height:200px;overflow-y:auto;display:flex;flex-direction:column;gap:7px;}
+.ai-msg{padding:7px 10px;border-radius:5px;font-size:10px;line-height:1.5;max-width:88%;}
+.ai-msg.bot{background:var(--surface);border:1px solid var(--border);color:var(--white);align-self:flex-start;}
+.ai-msg.user{background:rgba(30,96,204,.2);border:1px solid rgba(59,143,255,.2);color:var(--white);align-self:flex-end;}
+.ai-msg.typing{color:var(--grey);font-style:italic;}
+.ai-in-row{padding:9px 11px;border-top:1px solid var(--border);display:flex;gap:6px;}
+.ai-in{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:5px 9px;color:var(--white);font-size:10px;outline:none;}
+.ai-in:focus{border-color:var(--cyan);}
+.ai-send{background:var(--cyan-d);border:1px solid rgba(0,200,224,.3);border-radius:4px;padding:5px 9px;cursor:pointer;color:var(--cyan);font-size:11px;}
+
+/* PTT PANEL */
+#ptt-panel{position:fixed;bottom:14px;right:14px;z-index:300;background:var(--panel);border:1px solid var(--border);border-radius:11px;padding:14px;width:250px;display:none;}
+.ptt-ch{padding:5px 9px;background:var(--surface);border:1px solid var(--border);border-radius:4px;cursor:pointer;font-size:10px;transition:all .12s;margin-bottom:4px;}
+.ptt-ch.active{border-color:var(--green);background:var(--green-d);color:var(--green);}
+.ptt-btn{width:68px;height:68px;border-radius:50%;background:var(--surface);border:2px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto;transition:all .2s;user-select:none;}
+.ptt-btn.tx{background:var(--red-d);border-color:var(--red);transform:scale(1.1);}
+
+/* ROL COUNTDOWN */
+#rol-chip{cursor:default;}
+.rol-ok{border-color:var(--green);color:var(--green);background:var(--green-d);}
+.rol-warn{border-color:var(--amber);color:var(--amber);background:var(--amber-d);animation:blink .8s infinite;}
+.rol-danger{border-color:var(--red);color:var(--red);background:var(--red-d);animation:blink .5s infinite;}
+
+/* FATIGUE */
+#fat-wrap{position:fixed;top:60px;right:12px;z-index:150;}
+#fat-toggle{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:4px 10px;cursor:pointer;font-family:var(--mono);font-size:9px;color:var(--grey);display:flex;align-items:center;gap:4px;transition:all .12s;}
+#fat-toggle:hover{border-color:var(--cyan);color:var(--cyan);}
+#fat-panel{background:var(--panel);border:1px solid var(--border);border-radius:7px;padding:12px;width:150px;display:none;margin-top:5px;}
+.ft-time{font-family:var(--font);font-size:20px;font-weight:800;color:var(--white);text-align:center;}
+.ft-bar{height:4px;background:var(--border);border-radius:2px;margin:7px 0;overflow:hidden;}
+.ft-fill{height:100%;border-radius:2px;transition:width .5s,background .5s;}
+.ft-next{font-family:var(--mono);font-size:8px;color:var(--grey);text-align:center;}
+#break-alert{background:var(--red-d);border:1px solid rgba(255,59,59,.4);border-radius:4px;padding:6px;text-align:center;display:none;cursor:pointer;font-family:var(--font);font-size:11px;font-weight:700;color:var(--red);letter-spacing:1px;margin-top:7px;animation:blink 1s infinite;}
+
+/* OFFLINE */
+#offline-banner{background:var(--amber-d);border-bottom:1px solid rgba(255,140,0,.3);padding:4px 18px;font-family:var(--mono);font-size:8px;color:var(--amber);letter-spacing:1px;text-align:center;display:none;}
+
+/* TOAST */
+#toast{position:fixed;top:62px;left:50%;transform:translateX(-50%) translateY(-8px);background:var(--panel);border:1px solid var(--border);border-radius:5px;padding:8px 16px;font-size:11px;opacity:0;transition:all .25s;z-index:999;white-space:nowrap;pointer-events:none;}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* NM CATS */
+.nm-cats{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:12px;}
+.nm-cat{background:var(--surface);border:2px solid var(--border);border-radius:5px;padding:11px 7px;text-align:center;cursor:pointer;transition:all .12s;}
+.nm-cat:hover{border-color:var(--blue-hi);}
+.nm-cat.sel{border-color:var(--red);background:var(--red-d);}
+.nm-cat-i{font-size:18px;margin-bottom:3px;}
+.nm-cat-l{font-size:9px;font-weight:600;}
+.nm-sev-pills{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;}
+.nm-sev{padding:5px 11px;background:var(--surface);border:1px solid var(--border);border-radius:16px;cursor:pointer;font-size:10px;transition:all .12s;}
+.nm-sev.sel{border-color:var(--amber);background:var(--amber-d);color:var(--amber);}
+
+/* SIDEBAR OVERLAY */
+#sob{display:none;position:fixed;inset:0;background:rgba(6,10,16,.7);z-index:100;}
+
+@media(max-width:768px){
+  .mob-toggle{display:block;}
+  .sidebar{position:fixed;left:-214px;top:52px;height:calc(100vh - 52px);z-index:101;transition:left .25s;}
+  .sidebar.open{left:0;}
+  #sob.open{display:block;}
+  .g2,.g3,.g4{grid-template-columns:1fr;}
+  #ai-wrap{left:8px;}
+  .brand-tag{display:none;}
+}
+</style>
+</head>
+<body>
+<div id="offline-banner">⚠ NO NETWORK — Live weather and AI Advisor unavailable · All site tools functional</div>
+<div id="toast"></div>
+
+<!-- PTT -->
+<div id="ptt-panel">
+  <div style="font-family:var(--font);font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--cyan);margin-bottom:9px;">Push to Talk</div>
+  <div id="ptt-channels">
+    <div class="ptt-ch active" onclick="setPTTch(this)">📡 All Crew</div>
+    <div class="ptt-ch" onclick="setPTTch(this)">🦺 Traffic Manager</div>
+    <div class="ptt-ch" onclick="setPTTch(this)">👔 Client</div>
+    <div class="ptt-ch" onclick="setPTTch(this)">🏢 HQ Dispatch</div>
+  </div>
+  <div class="ptt-btn" id="ptt-btn" onmousedown="startPTT()" onmouseup="stopPTT()" ontouchstart="startPTT(e)" ontouchend="stopPTT()" style="margin:12px auto;">📡</div>
+  <div id="ptt-status" style="font-family:var(--mono);font-size:9px;color:var(--grey);text-align:center;margin-top:7px;letter-spacing:1px;">HOLD TO TRANSMIT</div>
+  <button class="btn btn-o btn-sm" style="width:100%;margin-top:9px;justify-content:center;" onclick="document.getElementById('ptt-panel').style.display='none'">Close</button>
+</div>
+
+<!-- NEAR MISS MODAL -->
+<div class="modal" id="nm-modal">
+  <div class="mbox">
+    <div style="font-family:var(--font);font-size:16px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--red);margin-bottom:14px;">⚠ Quick Near-Miss Report</div>
+    <div class="fl">What happened?</div>
+    <div class="nm-cats" id="nm-cats">
+      <div class="nm-cat" onclick="selNMcat(this)"><div class="nm-cat-i">🚗</div><div class="nm-cat-l">Vehicle incursion</div></div>
+      <div class="nm-cat" onclick="selNMcat(this)"><div class="nm-cat-i">💨</div><div class="nm-cat-l">Speeding driver</div></div>
+      <div class="nm-cat" onclick="selNMcat(this)"><div class="nm-cat-i">🪧</div><div class="nm-cat-l">Signage issue</div></div>
+      <div class="nm-cat" onclick="selNMcat(this)"><div class="nm-cat-i">😡</div><div class="nm-cat-l">Abuse / threat</div></div>
+      <div class="nm-cat" onclick="selNMcat(this)"><div class="nm-cat-i">🔧</div><div class="nm-cat-l">Equipment</div></div>
+      <div class="nm-cat" onclick="selNMcat(this)"><div class="nm-cat-i">⚠️</div><div class="nm-cat-l">Other hazard</div></div>
+    </div>
+    <div class="fl">Severity</div>
+    <div class="nm-sev-pills">
+      <div class="nm-sev" onclick="selNMsev(this)">🔶 Near miss</div>
+      <div class="nm-sev" onclick="selNMsev(this)">⚠️ Unsafe condition</div>
+      <div class="nm-sev" onclick="selNMsev(this)">🚑 Injury occurred</div>
+    </div>
+    <div class="fl">Reporter</div>
+    <div class="nm-sev-pills">
+      <div class="nm-sev sel" onclick="selNManon(this)" id="anon-btn">🔒 Anonymous</div>
+      <div class="nm-sev" onclick="selNMnamed(this)" id="named-btn">👤 Include my name</div>
+    </div>
+    <div style="display:flex;gap:7px;margin-top:4px;">
+      <button class="btn btn-r" onclick="submitNM()">Submit Report</button>
+      <button class="btn btn-o" onclick="closeModal('nm-modal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- TAPER MODAL -->
+<div class="modal" id="taper-modal">
+  <div class="mbox">
+    <div class="mt">🧮 AS 1742.3 Taper Calculator</div>
+    <div class="fl">Speed Zone (km/h)</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;" id="tc-speeds">
+      <button class="tbtn" onclick="setTCspeed(this,40)">40</button>
+      <button class="tbtn" onclick="setTCspeed(this,50)">50</button>
+      <button class="tbtn" onclick="setTCspeed(this,60)">60</button>
+      <button class="tbtn" onclick="setTCspeed(this,70)">70</button>
+      <button class="tbtn" onclick="setTCspeed(this,80)">80</button>
+      <button class="tbtn" onclick="setTCspeed(this,90)">90</button>
+      <button class="tbtn" onclick="setTCspeed(this,100)">100</button>
+      <button class="tbtn" onclick="setTCspeed(this,110)">110</button>
+    </div>
+    <div class="fl">Lane Width</div>
+    <div style="display:flex;gap:6px;margin-bottom:16px;" id="tc-widths">
+      <button class="tbtn" onclick="setTCwidth(this,3.0)">3.0m</button>
+      <button class="tbtn" onclick="setTCwidth(this,3.3)">3.3m</button>
+      <button class="tbtn" onclick="setTCwidth(this,3.5)">3.5m</button>
+      <button class="tbtn" onclick="setTCwidth(this,3.7)">3.7m</button>
+      <button class="tbtn" onclick="setTCwidth(this,4.0)">4.0m</button>
+    </div>
+    <div id="tc-result" style="display:none;"></div>
+    <button class="btn btn-o btn-sm" onclick="closeModal('taper-modal')">Close</button>
+  </div>
+</div>
+
+<!-- SPEED MODAL -->
+<div class="modal" id="speed-modal">
+  <div class="mbox">
+    <div class="mt">🚦 Speed Reduction Advisor</div>
+    <div class="g2" style="margin-bottom:14px;">
+      <div><label class="fl">Permanent Speed</label>
+        <select class="fs" id="sa-perm" onchange="calcSpeedAdvisor()">
+          <option value="">Select...</option>
+          <option>50</option><option>60</option><option>70</option><option>80</option><option>90</option><option>100</option><option>110</option>
+        </select></div>
+      <div><label class="fl">Work Zone Speed</label>
+        <select class="fs" id="sa-wz" onchange="calcSpeedAdvisor()">
+          <option value="">Select...</option>
+          <option>25</option><option>30</option><option>40</option><option>45</option><option>50</option><option>60</option>
+        </select></div>
+    </div>
+    <div id="sa-result"></div>
+    <button class="btn btn-o btn-sm" onclick="closeModal('speed-modal')">Close</button>
+  </div>
+</div>
+
+<!-- FATIGUE -->
+<div id="fat-wrap">
+  <div id="fat-toggle" onclick="toggleFat()">⏱ <span id="fat-compact">00:00</span></div>
+  <div id="fat-panel">
+    <div style="font-family:var(--font);font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--grey);margin-bottom:7px;">On-Site Timer</div>
+    <div class="ft-time" id="ft-time">00:00:00</div>
+    <div class="ft-bar"><div class="ft-fill" id="ft-fill" style="width:0%;background:var(--green);"></div></div>
+    <div class="ft-next" id="ft-next">Break in 2:00:00</div>
+    <div id="break-alert" onclick="logBreak()">🛑 BREAK TIME</div>
+  </div>
+</div>
+
+<!-- AI ADVISOR -->
+<div id="ai-wrap">
+  <div class="ai-box" id="ai-chat-box">
+    <div class="ai-hdr">
+      <div class="ai-hdr-t">🤖 AI Site Advisor</div>
+      <div style="font-family:var(--mono);font-size:7px;color:var(--grey);">TCAWS 6.1 · NSW</div>
+    </div>
+    <div class="ai-msgs" id="ai-msgs">
+      <div class="ai-msg bot">G'day! I know your current job context. Ask me anything about TGS, compliance, or site safety. 👷</div>
+    </div>
+    <div class="ai-in-row">
+      <input class="ai-in" id="ai-input" placeholder="Ask the site advisor..." onkeydown="if(event.key==='Enter')sendAI()">
+      <button class="ai-send" onclick="sendAI()">➤</button>
+    </div>
+  </div>
+  <button class="ai-toggle" onclick="toggleAI()">🤖 AI Site Advisor</button>
+</div>
+
+<!-- APP -->
+<div class="app">
+  <div id="offline-banner" style="display:none;"></div>
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="brand">
+      <button class="mob-toggle" onclick="toggleSidebar()">☰</button>
+      <div class="brand-logo">🚦</div>
+      <div class="brand-name">Clear<span>Way</span></div>
+      <div class="brand-tag">NSW v3.0 · TCAWS 6.1</div>
+    </div>
+    <div class="topbar-right">
+      <span class="chip live"><span class="live-dot"></span>Live</span>
+      <span class="chip" id="rol-chip">ROL —:——</span>
+      <span class="chip" id="wx-chip">Loading wx...</span>
+      <span class="chip" id="clock">00:00 AEDT</span>
+    </div>
+  </div>
+
+  <div id="sob" onclick="closeSidebar()"></div>
+
+  <div class="main">
+    <!-- SIDEBAR -->
+    <div class="sidebar" id="sidebar">
+      <div class="nav-sec">Overview</div>
+      <div class="nav-item active" onclick="nav('dashboard')"><span class="nav-icon">📊</span>Dashboard<span class="nbadge nb-a">2</span></div>
+
+      <div class="nav-sec">Planning</div>
+      <div class="nav-item" onclick="nav('plan')"><span class="nav-icon">📋</span>New Job Plan</div>
+      <div class="nav-item" onclick="nav('tgs')"><span class="nav-icon">🗺️</span>TGS Library</div>
+      <div class="nav-item" onclick="nav('tmp')"><span class="nav-icon">📄</span>TMP Generator</div>
+      <div class="nav-item" onclick="nav('briefing')"><span class="nav-icon">🎯</span>Pre-Site Briefing</div>
+
+      <div class="nav-sec">On Site</div>
+      <div class="nav-item" onclick="nav('implement')"><span class="nav-icon">⚙️</span>Implement<span class="nbadge nb-r" id="nb-impl">0/12</span></div>
+      <div class="nav-item" onclick="nav('monitor')"><span class="nav-icon">👁️</span>Monitor<span class="nbadge nb-r">2</span></div>
+      <div class="nav-item" onclick="nav('conditions')"><span class="nav-icon">🌤️</span>Conditions</div>
+      <div class="nav-item" onclick="nav('risk')"><span class="nav-icon">⚠️</span>Risk &amp; Changes</div>
+
+      <div class="nav-sec">Tools</div>
+      <div class="nav-item" onclick="nav('device')"><span class="nav-icon">🔍</span>Device Advisor</div>
+      <div class="nav-item" onclick="openModal('taper-modal')"><span class="nav-icon">🧮</span>Taper Calc</div>
+      <div class="nav-item" onclick="openModal('speed-modal')"><span class="nav-icon">🚦</span>Speed Advisor</div>
+      <div class="nav-item" onclick="document.getElementById('ptt-panel').style.display='block'"><span class="nav-icon">📡</span>Push to Talk</div>
+
+      <div class="nav-sec">Reporting</div>
+      <div class="nav-item" onclick="nav('incidents')"><span class="nav-icon">🚨</span>Incidents</div>
+      <div class="nav-item" onclick="openModal('nm-modal')"><span class="nav-icon">⚡</span>Quick Report</div>
+      <div class="nav-item" onclick="nav('comms')"><span class="nav-icon">💬</span>Communications</div>
+      <div class="nav-item" onclick="nav('packup')"><span class="nav-icon">✅</span>Site Completion</div>
+
+      <div class="nav-sec">Performance</div>
+      <div class="nav-item" onclick="nav('safety')"><span class="nav-icon">🏆</span>Safety Score</div>
+    </div>
+
+    <!-- CONTENT -->
+    <div class="content">
+
+      <!-- ═══ DASHBOARD ═══ -->
+      <div class="page active" id="page-dashboard">
+        <div class="ph">
+          <div><div class="pt">Job <span>Dashboard</span></div><div class="ps">NSW · 3 active sites · 1 permit expiring today</div></div>
+          <div style="display:flex;gap:7px;flex-wrap:wrap;">
+            <button class="btn btn-c btn-sm" onclick="nav('plan')">📋 New Job</button>
+            <button class="btn btn-r btn-sm" onclick="openModal('nm-modal')">⚡ Near Miss</button>
+          </div>
+        </div>
+        <div class="g4" style="margin-bottom:14px;">
+          <div class="sc"><div class="sv">3</div><div class="sl">Active Sites</div></div>
+          <div class="sc"><div class="sv" style="color:var(--amber);">1</div><div class="sl">Expiring Today</div></div>
+          <div class="sc"><div class="sv" style="color:var(--green);">12</div><div class="sl">Completed Month</div></div>
+          <div class="sc"><div class="sv" style="color:var(--green);">0</div><div class="sl">LTI — MTD</div></div>
+        </div>
+        <div class="g2">
+          <div>
+            <div class="card">
+              <div class="card-title">Active Jobs</div>
+              <div class="lr" style="cursor:pointer;" onclick="nav('monitor')">
+                <div class="lt">JOB-001</div><span class="badge ba">ACTIVE</span>
+                <div style="flex:1;font-size:11px;"><strong>Parramatta Rd, Ashfield</strong><br><span style="color:var(--grey);">Water main · A2-50 · Expires 17:00</span></div>
+                <span class="badge br">2 issues</span>
+              </div>
+              <div class="lr">
+                <div class="lt">JOB-002</div><span class="badge bg">ACTIVE</span>
+                <div style="flex:1;font-size:11px;"><strong>George St, Sydney CBD</strong><br><span style="color:var(--grey);">NBN conduit · B1-60 · Expires 18:00</span></div>
+                <span class="badge bg">Clear</span>
+              </div>
+              <div class="lr">
+                <div class="lt">JOB-003</div><span class="badge bb">SETUP</span>
+                <div style="flex:1;font-size:11px;"><strong>Pacific Hwy, Pymble</strong><br><span style="color:var(--grey);">Asphalt · C3-100 · Starts 20:00</span></div>
+                <span class="badge bx">Pending</span>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-title">Open Issues</div>
+              <div class="alert al-d"><span class="alert-icon">🚨</span><div><strong>JOB-001:</strong> Advance warning sign on northern approach displaced. Action required before next movement.</div></div>
+              <div class="alert al-w"><span class="alert-icon">⚠️</span><div><strong>JOB-001:</strong> ROL expires 17:00. Extension submitted — pending TfNSW approval.</div></div>
+            </div>
+          </div>
+          <div>
+            <div class="wx" id="wx-dash">
+              <div style="display:flex;align-items:flex-start;justify-content:space-between;">
+                <div><div class="wx-temp" id="wx-temp">--°C</div><div class="wx-desc" id="wx-desc">Loading weather...</div></div>
+                <div style="font-size:30px;" id="wx-icon">🌤️</div>
+              </div>
+              <div class="wx-g">
+                <div class="wx-item"><div class="wx-val" id="wx-wind">--</div><div class="wx-key">Wind km/h</div></div>
+                <div class="wx-item"><div class="wx-val" id="wx-gusts">--</div><div class="wx-key">Gusts km/h</div></div>
+                <div class="wx-item"><div class="wx-val" id="wx-uv">--</div><div class="wx-key">UV Index</div></div>
+              </div>
+              <div id="wx-alerts" style="margin-top:9px;"></div>
+            </div>
+            <div class="card" style="margin-top:12px;">
+              <div class="card-title">Quick Tools</div>
+              <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                <button class="btn btn-c btn-sm" onclick="nav('device')">🔍 Device Advisor</button>
+                <button class="btn btn-o btn-sm" onclick="openModal('taper-modal')">🧮 Taper Calc</button>
+                <button class="btn btn-o btn-sm" onclick="openModal('speed-modal')">🚦 Speed Steps</button>
+                <button class="btn btn-o btn-sm" onclick="document.getElementById('ptt-panel').style.display='block'">📡 PTT</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ JOB PLAN ═══ -->
+      <div class="page" id="page-plan">
+        <div class="ph">
+          <div><div class="pt">New Job <span>Plan</span></div><div class="ps">Answer each question — the system recommends the right TGS and TMP</div></div>
+          <button class="btn btn-o btn-sm" onclick="resetWizard()">↺ Start Over</button>
+        </div>
+        <div class="wprog" id="wprog">
+          <div class="wstep active" id="ws1"><div class="snum">1</div>Location</div><div class="scon"></div>
+          <div class="wstep" id="ws2"><div class="snum">2</div>Road</div><div class="scon"></div>
+          <div class="wstep" id="ws3"><div class="snum">3</div>Work</div><div class="scon"></div>
+          <div class="wstep" id="ws4"><div class="snum">4</div>Duration</div><div class="scon"></div>
+          <div class="wstep" id="ws5"><div class="snum">5</div>Permits</div><div class="scon"></div>
+          <div class="wstep" id="ws6"><div class="snum">6</div>Result</div>
+        </div>
+
+        <div id="step1" class="card">
+          <div class="wq">Where is the worksite?</div>
+          <div class="wh">Enter address — weather will auto-load for the location. Select client and road authority.</div>
+          <div class="g2">
+            <div class="fg"><label class="fl">Street / Road Name <span class="req">*</span></label><input type="text" class="fi" id="loc-street" placeholder="e.g. Parramatta Road" oninput="geocodeDebounce()"></div>
+            <div class="fg"><label class="fl">Suburb / Town <span class="req">*</span></label><input type="text" class="fi" id="loc-suburb" placeholder="e.g. Ashfield"></div>
+            <div class="fg"><label class="fl">Road Authority</label>
+              <select class="fs" id="loc-auth">
+                <option value="">— Select —</option>
+                <option value="tfnsw">Transport for NSW (State Road)</option>
+                <option value="council">Local Council Road</option>
+                <option value="private">Private Road</option>
+              </select></div>
+            <div class="fg"><label class="fl">Posted Speed Zone</label>
+              <select class="fs" id="loc-speed">
+                <option value="">— Select —</option>
+                <option>10</option><option>25</option><option>40</option><option>50</option><option>60</option><option>70</option><option>80</option><option>90</option><option>100</option><option>110</option>
+              </select></div>
+            <div class="fg"><label class="fl">Client / Principal Contractor <span class="req">*</span></label>
+              <select class="fs" id="loc-client">
+                <option value="">— Select Client —</option>
+                <optgroup label="Utilities"><option>Sydney Water</option><option>Hunter Water</option><option>Ausgrid</option><option>Endeavour Energy</option><option>Essential Energy</option><option>APA Group</option><option>Jemena</option><option>Transgrid</option><option>NBN Co</option><option>Telstra</option><option>Optus</option></optgroup>
+                <optgroup label="Major Contractors"><option>John Holland</option><option>CPB Contractors</option><option>Acciona</option><option>Lendlease Engineering</option><option>CIMIC</option><option>Fulton Hogan</option><option>Downer Group</option><option>Laing O'Rourke</option><option>BMD Constructions</option></optgroup>
+                <optgroup label="NSW Councils"><option>City of Sydney</option><option>Inner West Council</option><option>Parramatta City Council</option><option>Blacktown City Council</option><option>Cumberland Council</option><option>Liverpool City Council</option><option>Canterbury-Bankstown</option><option>Northern Beaches Council</option><option>Ku-ring-gai Council</option><option>North Sydney Council</option><option>Ryde City Council</option><option>Penrith City Council</option><option>Wollongong City Council</option><option>Newcastle City Council</option><option>Lake Macquarie City Council</option></optgroup>
+                <optgroup label="Civil"><option>Road &amp; Rail Excavations</option><option>Abergeldie Complex Infrastructure</option><option>Georgiou Group</option><option>Fulton Hogan</option><option>Seymour Whyte</option><option>Ventia</option></optgroup>
+                <option>Transport for NSW</option>
+                <option>Other — specify in notes</option>
+              </select></div>
+            <div class="fg"><label class="fl">Job Reference / PO Number</label><input type="text" class="fi" id="loc-jobref" placeholder="e.g. PO-2026-XXXX"></div>
+          </div>
+          <div id="map-zone" style="background:var(--surface);border:1px solid var(--border);border-radius:5px;height:120px;display:flex;align-items:center;justify-content:center;margin-bottom:14px;color:var(--grey);font-size:11px;overflow:hidden;">
+            <span id="map-ph">📍 Enter address to preview location</span>
+            <iframe id="map-frame" style="display:none;width:100%;height:100%;border:0;" loading="lazy"></iframe>
+          </div>
+          <div id="geocode-hint" style="font-family:var(--mono);font-size:9px;color:var(--grey);margin-bottom:12px;min-height:14px;"></div>
+          <button class="btn btn-p" onclick="nextStep(1)">Continue →</button>
+        </div>
+
+        <div id="step2" class="card" style="display:none;">
+          <div class="wq">What type of road is this?</div>
+          <div class="wh">Affects required advance warning distances and device types per TCAWS.</div>
+          <div class="ogrid">
+            <div class="ocard" onclick="selOpt('road-type','urban-local',this)"><div class="oi">🏘️</div><div class="ol">Urban Local</div><div class="od">Residential, ≤50 km/h</div></div>
+            <div class="ocard" onclick="selOpt('road-type','urban-arterial',this)"><div class="oi">🏙️</div><div class="ol">Urban Arterial</div><div class="od">Busy city, up to 70 km/h</div></div>
+            <div class="ocard" onclick="selOpt('road-type','rural',this)"><div class="oi">🌾</div><div class="ol">Rural Road</div><div class="od">Open road, 80–100 km/h</div></div>
+            <div class="ocard" onclick="selOpt('road-type','highway',this)"><div class="oi">🛣️</div><div class="ol">Highway / Freeway</div><div class="od">High speed, 100–110 km/h</div></div>
+            <div class="ocard" onclick="selOpt('road-type','intersection',this)"><div class="oi">✚</div><div class="ol">Intersection</div><div class="od">At or near signalised junction</div></div>
+            <div class="ocard" onclick="selOpt('road-type','shared',this)"><div class="oi">🚶</div><div class="ol">Shared Zone</div><div class="od">High foot traffic, school zone</div></div>
+          </div>
+          <div style="display:flex;gap:7px;margin-top:14px;">
+            <button class="btn btn-o" onclick="prevStep(2)">← Back</button>
+            <button class="btn btn-p" onclick="nextStep(2)">Continue →</button>
+          </div>
+        </div>
+
+        <div id="step3" class="card" style="display:none;">
+          <div class="wq">What type of work? (select all that apply)</div>
+          <div class="wh">Affects hazard assessment and required controls.</div>
+          <div class="ogrid">
+            <div class="ocard" onclick="togOpt('work-type','asphalt',this)"><div class="oi">🛤️</div><div class="ol">Asphalt / Surfacing</div></div>
+            <div class="ocard" onclick="togOpt('work-type','water',this)"><div class="oi">💧</div><div class="ol">Water / Sewerage</div></div>
+            <div class="ocard" onclick="togOpt('work-type','gas',this)"><div class="oi">🔥</div><div class="ol">Gas</div></div>
+            <div class="ocard" onclick="togOpt('work-type','elec',this)"><div class="oi">⚡</div><div class="ol">Electrical / NBN</div></div>
+            <div class="ocard" onclick="togOpt('work-type','civil',this)"><div class="oi">🏗️</div><div class="ol">Civil / Excavation</div></div>
+            <div class="ocard" onclick="togOpt('work-type','maint',this)"><div class="oi">🔧</div><div class="ol">Maintenance</div></div>
+            <div class="ocard" onclick="togOpt('work-type','veg',this)"><div class="oi">🌳</div><div class="ol">Vegetation</div></div>
+            <div class="ocard" onclick="togOpt('work-type','other',this)"><div class="oi">🔲</div><div class="ol">Other</div></div>
+          </div>
+          <div style="display:flex;gap:7px;margin-top:14px;">
+            <button class="btn btn-o" onclick="prevStep(3)">← Back</button>
+            <button class="btn btn-p" onclick="nextStep(3)">Continue →</button>
+          </div>
+        </div>
+
+        <div id="step4" class="card" style="display:none;">
+          <div class="wq">Duration &amp; lane impact?</div>
+          <div class="wh">Determines TGS category and inspection frequency requirements.</div>
+          <div class="g2">
+            <div>
+              <label class="fl">Duration</label>
+              <div class="ogrid" style="grid-template-columns:1fr 1fr;gap:6px;">
+                <div class="ocard" onclick="selOpt('duration','short',this)" style="padding:9px;"><div class="oi" style="font-size:18px;">⚡</div><div class="ol" style="font-size:10px;">Short</div><div class="od">Under 4 hrs</div></div>
+                <div class="ocard" onclick="selOpt('duration','day',this)" style="padding:9px;"><div class="oi" style="font-size:18px;">🌅</div><div class="ol" style="font-size:10px;">Day</div><div class="od">4–24 hrs</div></div>
+                <div class="ocard" onclick="selOpt('duration','multi',this)" style="padding:9px;"><div class="oi" style="font-size:18px;">📅</div><div class="ol" style="font-size:10px;">Multi-Day</div><div class="od">2–6 days</div></div>
+                <div class="ocard" onclick="selOpt('duration','long',this)" style="padding:9px;"><div class="oi" style="font-size:18px;">🏗️</div><div class="ol" style="font-size:10px;">Long Term</div><div class="od">1 week+</div></div>
+              </div>
+            </div>
+            <div>
+              <label class="fl">Lane Impact</label>
+              <div class="ogrid" style="grid-template-columns:1fr 1fr;gap:6px;">
+                <div class="ocard" onclick="selOpt('lanes','shoulder',this)" style="padding:9px;"><div class="oi" style="font-size:18px;">↔️</div><div class="ol" style="font-size:10px;">Shoulder</div><div class="od">No closure</div></div>
+                <div class="ocard" onclick="selOpt('lanes','partial',this)" style="padding:9px;"><div class="oi" style="font-size:18px;">⬅️</div><div class="ol" style="font-size:10px;">Partial Lane</div><div class="od">Encroaches</div></div>
+                <div class="ocard" onclick="selOpt('lanes','one-lane',this)" style="padding:9px;"><div class="oi" style="font-size:18px;">🚧</div><div class="ol" style="font-size:10px;">One Lane</div><div class="od">Alternating</div></div>
+                <div class="ocard" onclick="selOpt('lanes','full',this)" style="padding:9px;"><div class="oi" style="font-size:18px;">🛑</div><div class="ol" style="font-size:10px;">Full Closure</div><div class="od">Detour needed</div></div>
+              </div>
+            </div>
+          </div>
+          <div class="g2" style="margin-top:10px;">
+            <div class="fg"><label class="fl">Night Works?</label>
+              <select class="fs" id="night"><option value="no">No — day works only</option><option value="yes">Yes — works after dark</option><option value="both">Day and night works</option></select></div>
+            <div class="fg"><label class="fl">Pedestrian Impact</label>
+              <select class="fs" id="peds"><option value="none">No pedestrians affected</option><option value="low">Low — occasional</option><option value="high">High — footpath/crossing affected</option></select></div>
+          </div>
+          <div style="display:flex;gap:7px;">
+            <button class="btn btn-o" onclick="prevStep(4)">← Back</button>
+            <button class="btn btn-p" onclick="nextStep(4)">Continue →</button>
+          </div>
+        </div>
+
+        <div id="step5" class="card" style="display:none;">
+          <div class="wq">Permits &amp; qualifications</div>
+          <div class="wh">Confirm what's in place. The plan will flag any gaps.</div>
+          <div class="fg"><label class="fl">Road Occupancy Licence (ROL)</label>
+            <select class="fs" id="rol-status"><option value="na">Not required</option><option value="pending">Applied — pending</option><option value="approved">Approved</option></select></div>
+          <div class="g2">
+            <div class="fg"><label class="fl">ROL Reference</label><input type="text" class="fi" id="rol-num" placeholder="ROL-2026-XXXXX"></div>
+            <div class="fg"><label class="fl">ROL Expiry Time</label><input type="time" class="fi" id="rol-expiry" onchange="setROL()"></div>
+            <div class="fg"><label class="fl">Traffic Manager (PWZTMP)</label><input type="text" class="fi" id="tm-name" placeholder="Full name"></div>
+            <div class="fg"><label class="fl">PWZTMP Licence Number</label><input type="text" class="fi" id="tm-lic" placeholder="TC12345678"></div>
+          </div>
+          <div style="display:flex;gap:7px;">
+            <button class="btn btn-o" onclick="prevStep(5)">← Back</button>
+            <button class="btn btn-g" onclick="generatePlan()">⚡ Generate Plan →</button>
+          </div>
+        </div>
+
+        <div id="step6" style="display:none;" id="plan-result"></div>
+      </div>
+
+      <!-- ═══ TGS LIBRARY ═══ -->
+      <div class="page" id="page-tgs">
+        <div class="ph"><div><div class="pt">TGS <span>Library</span></div><div class="ps">NSW TCAWS 6.1 standard layouts — all TGS must be Site Suitable or Site Specific approved</div></div></div>
+        <div class="alert al-w"><span class="alert-icon">⚠️</span><div>Reference layouts only. Every TGS used on site must be approved by a PWZTMP qualified person per TCAWS Section 7.</div></div>
+        <div class="g2" style="margin-bottom:12px;">
+          <div class="fg" style="margin:0;"><label class="fl">Speed Zone</label>
+            <select class="fs" id="tgs-spd" onchange="filterTGS()"><option value="">All speeds</option><option value="low">≤50 km/h</option><option value="mid">60–70 km/h</option><option value="high">80–110 km/h</option></select></div>
+          <div class="fg" style="margin:0;"><label class="fl">Lane Configuration</label>
+            <select class="fs" id="tgs-ln" onchange="filterTGS()"><option value="">All configurations</option><option value="shoulder">Shoulder works</option><option value="one-lane">One lane closed</option><option value="full">Full road closure</option></select></div>
+        </div>
+        <div id="tgs-cards"></div>
+      </div>
+
+      <!-- ═══ TMP GENERATOR ═══ -->
+      <div class="page" id="page-tmp">
+        <div class="ph"><div><div class="pt">TMP <span>Generator</span></div><div class="ps">Auto-populated from your job plan. Review and download.</div></div><button class="btn btn-g btn-sm">⬇ Download TMP</button></div>
+        <div class="alert al-i"><span class="alert-icon">ℹ️</span><div>Complete the Job Plan wizard first. A PWZTMP person must review and approve before site works begin.</div></div>
+        <div class="card">
+          <div class="card-title">Traffic Management Plan — Draft</div>
+          <div class="g2">
+            <div class="fg"><label class="fl">Document Reference</label><input type="text" class="fi" value="TMP-2026-001"></div>
+            <div class="fg"><label class="fl">Date Prepared</label><input type="date" class="fi" id="tmp-date"></div>
+          </div>
+          <div class="fg"><label class="fl">1. Purpose and Scope</label><textarea class="ft" placeholder="Describe the work to be carried out, scope, and constraints..."></textarea></div>
+          <div class="fg"><label class="fl">2. Site Location</label><textarea class="ft" placeholder="Full location description including road name, carriageway, nearby features..."></textarea></div>
+          <div class="fg"><label class="fl">3. Risk Assessment Summary</label><textarea class="ft" style="min-height:90px;" placeholder="Key risks and controls. Reference risk assessment attached as Appendix A..."></textarea></div>
+          <div class="fg"><label class="fl">4. TGS Reference</label><input type="text" class="fi" placeholder="TGS reference and approval details..."></div>
+          <div class="fg"><label class="fl">5. Emergency Contacts</label><textarea class="ft" placeholder="Police, ambulance, Dial Before You Dig, utility emergency lines..."></textarea></div>
+        </div>
+      </div>
+
+      <!-- ═══ PRE-SITE BRIEFING ═══ -->
+      <div class="page" id="page-briefing">
+        <div class="ph">
+          <div><div class="pt">Pre-Site <span>Briefing</span></div><div class="ps">Know before you go · Swipe through before opening the site</div></div>
+          <div style="display:flex;align-items:center;gap:7px;">
+            <span id="brief-status" class="badge ba">0 / 8 read</span>
+            <button class="btn btn-o btn-sm" onclick="skipBriefing()">Skip →</button>
+          </div>
+        </div>
+        <div class="brief-wrap">
+          <div class="brief-slider" id="brief-slider"></div>
+        </div>
+        <div class="brief-dots" id="brief-dots"></div>
+        <div style="display:flex;justify-content:space-between;margin-top:14px;">
+          <button class="btn btn-o" onclick="prevCard()">← Previous</button>
+          <button class="btn btn-p" id="next-card-btn" onclick="nextCard()">Next →</button>
+        </div>
+        <div id="brief-signoff" style="display:none;margin-top:14px;">
+          <div class="alert al-s"><span class="alert-icon">✅</span><div>All briefing cards reviewed. You're ready to open this site.</div></div>
+          <button class="btn btn-g" onclick="signOffBriefing()">✓ Sign Off &amp; Open Site</button>
+        </div>
+      </div>
+
+      <!-- ═══ IMPLEMENT ═══ -->
+      <div class="page" id="page-implement">
+        <div class="ph"><div><div class="pt">Site <span>Implementation</span></div><div class="ps">TCAWS INS-01 · Complete before opening site to traffic</div></div><span class="badge ba">IN PROGRESS</span></div>
+        <div class="tools-bar">
+          <div class="tbtn" onclick="openModal('taper-modal')">🧮 Taper Calc</div>
+          <div class="tbtn" onclick="openModal('speed-modal')">🚦 Speed Advisor</div>
+          <div class="tbtn" onclick="document.getElementById('ptt-panel').style.display='block'">📡 PTT</div>
+          <div class="tbtn" onclick="openModal('nm-modal')">⚡ Near Miss</div>
+        </div>
+        <div class="jbar">
+          <div><div class="jf-l">Job Ref</div><div class="jf-v">JOB-2026-001</div></div>
+          <div><div class="jf-l">Location</div><div class="jf-v">Parramatta Rd, Ashfield</div></div>
+          <div><div class="jf-l">TGS</div><div class="jf-v" style="color:var(--cyan);">A2-50</div></div>
+          <div><div class="jf-l">TC on Site</div><div class="jf-v">J. Smith</div></div>
+          <div><div class="jf-l">Started</div><div class="jf-v" id="site-start">—</div></div>
+          <div><div class="jf-l">ROL Expiry</div><div class="jf-v" style="color:var(--amber);">17:00</div></div>
+        </div>
+        <div class="tabs">
+          <div class="tab active" onclick="switchTab('impl','setup',this)">Setup Verification</div>
+          <div class="tab" onclick="switchTab('impl','shift',this)">Shift Inspection</div>
+          <div class="tab" onclick="switchTab('impl','weekly',this)">Weekly Inspection</div>
+        </div>
+        <div id="impl-setup">
+          <div class="card">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+              <div class="card-title" style="margin:0;">Pre-Opening Verification — INS-01</div>
+              <div id="impl-prog" style="font-family:var(--mono);font-size:9px;color:var(--grey);">0 / 12</div>
+            </div>
+            <div id="impl-checklist"></div>
+            <div style="margin-top:14px;display:flex;gap:7px;align-items:center;">
+              <button class="btn btn-p" onclick="signOffImpl()">✓ Sign Off &amp; Open Site</button>
+              <span style="font-size:10px;color:var(--grey);">Requires PWZTMP or ITCP qualified person</span>
+            </div>
+          </div>
+        </div>
+        <div id="impl-shift" style="display:none;">
+          <div class="card"><div class="card-title">Shift Inspection — INS-02</div><div class="alert al-i"><span class="alert-icon">⏱️</span><div>Minimum twice per shift — at installation and every 2 hours thereafter.</div></div><div id="shift-checklist"></div></div>
+        </div>
+        <div id="impl-weekly" style="display:none;">
+          <div class="card"><div class="card-title">Weekly Inspection — INS-03</div><div class="alert al-w"><span class="alert-icon">⚠️</span><div>PWZTMP only. Must be conducted at least once per week.</div></div><div id="weekly-checklist"></div></div>
+        </div>
+      </div>
+
+      <!-- ═══ MONITOR ═══ -->
+      <div class="page" id="page-monitor">
+        <div class="ph"><div><div class="pt">Site <span>Monitor</span></div><div class="ps">Live status · 2 items requiring attention</div></div></div>
+        <div class="tools-bar"><div class="tbtn" onclick="openModal('nm-modal')">⚡ Near Miss</div><div class="tbtn" onclick="document.getElementById('ptt-panel').style.display='block'">📡 PTT</div></div>
+        <div class="g4" style="margin-bottom:14px;">
+          <div class="sc"><div class="sv" style="color:var(--green);">✓</div><div class="sl">TGS Active</div></div>
+          <div class="sc"><div class="sv" style="color:var(--amber);">2h 14m</div><div class="sl">Next Inspection</div></div>
+          <div class="sc"><div class="sv" style="color:var(--red);">2</div><div class="sl">Open Issues</div></div>
+          <div class="sc"><div class="sv">0</div><div class="sl">Incidents Today</div></div>
+        </div>
+        <div class="alert al-d"><span class="alert-icon">🚨</span><div><strong>ISSUE #1:</strong> Advance warning sign on northern approach displaced by passing vehicle. Action required before next movement.</div></div>
+        <div class="alert al-w"><span class="alert-icon">⚠️</span><div><strong>ISSUE #2:</strong> ROL expires at 17:00. Extension submitted — awaiting TfNSW approval.</div></div>
+        <div class="card">
+          <div class="card-title">Activity Log</div>
+          <div class="lr"><div class="lt">09:15</div><span class="badge bg">SETUP</span><div style="flex:1;">TGS installed and verified. Site opened. Signed: J. Smith (PWZTMP)</div></div>
+          <div class="lr"><div class="lt">10:42</div><span class="badge bb">CHECK</span><div style="flex:1;">Shift inspection complete. All compliant.</div></div>
+          <div class="lr"><div class="lt">11:20</div><span class="badge br">ISSUE</span><div style="flex:1;">Northern advance sign displaced by B-double. Repositioned within 5 mins. No injury.</div></div>
+          <div class="lr"><div class="lt">12:55</div><span class="badge ba">PERMIT</span><div style="flex:1;">ROL expiry flagged. Extension submitted to TfNSW.</div></div>
+        </div>
+      </div>
+
+      <!-- ═══ CONDITIONS ═══ -->
+      <div class="page" id="page-conditions">
+        <div class="ph"><div><div class="pt">Site <span>Conditions</span></div><div class="ps">Log changes that may affect the TGS or risk profile</div></div></div>
+        <div class="g2">
+          <div>
+            <div class="wx" style="margin-bottom:12px;">
+              <div style="display:flex;align-items:flex-start;justify-content:space-between;">
+                <div><div class="wx-temp" id="wx-temp2">--°C</div><div class="wx-desc" id="wx-desc2">Loading...</div></div>
+                <div style="font-size:26px;" id="wx-icon2">🌤️</div>
+              </div>
+              <div class="wx-g">
+                <div class="wx-item"><div class="wx-val" id="wx-wind2">--</div><div class="wx-key">Wind km/h</div></div>
+                <div class="wx-item"><div class="wx-val" id="wx-gusts2">--</div><div class="wx-key">Gusts km/h</div></div>
+                <div class="wx-item"><div class="wx-val" id="wx-uv2">--</div><div class="wx-key">UV Index</div></div>
+              </div>
+              <div id="wx-alerts2" style="margin-top:9px;"></div>
+            </div>
+            <div class="card">
+              <div class="card-title">Current Conditions</div>
+              <div class="lr"><div style="width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0;"></div><div style="flex:1;"><div style="font-size:11px;font-weight:600;">Weather</div><div style="font-size:10px;color:var(--grey);">Clear, dry — no impact</div></div><span class="badge bg">OK</span></div>
+              <div class="lr"><div style="width:8px;height:8px;border-radius:50%;background:var(--amber);flex-shrink:0;"></div><div style="flex:1;"><div style="font-size:11px;font-weight:600;">Traffic Volume</div><div style="font-size:10px;color:var(--grey);">Higher than expected — peak approaching</div></div><span class="badge ba">MONITOR</span></div>
+              <div class="lr"><div style="width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0;"></div><div style="flex:1;"><div style="font-size:11px;font-weight:600;">Ground Conditions</div><div style="font-size:10px;color:var(--grey);">Stable</div></div><span class="badge bg">OK</span></div>
+              <div class="lr" style="border:none;"><div style="width:8px;height:8px;border-radius:50%;background:var(--red);flex-shrink:0;"></div><div style="flex:1;"><div style="font-size:11px;font-weight:600;">Underground Services</div><div style="font-size:10px;color:var(--grey);">Unmarked service at 600mm depth</div></div><span class="badge br">ACTION</span></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">Log a Condition Change</div>
+            <div class="fg"><label class="fl">Condition Type</label><select class="fs"><option>Weather change</option><option>Traffic incident nearby</option><option>Ground / site hazard</option><option>Underground service found</option><option>Equipment failure</option><option>Scope change</option></select></div>
+            <div class="fg"><label class="fl">Description</label><textarea class="ft" placeholder="Describe the change and immediate action taken..."></textarea></div>
+            <div class="fg"><label class="fl">TGS Change Required?</label><select class="fs"><option>No — within current TGS tolerances</option><option>Yes — requires PWZTMP review</option><option>Unsure — flagging for review</option></select></div>
+            <button class="btn btn-p">Log Change</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ RISK ═══ -->
+      <div class="page" id="page-risk">
+        <div class="ph"><div><div class="pt">Risk <span>&amp; Changes</span></div><div class="ps">Manage TGS variations, approvals, and risk controls</div></div></div>
+        <div class="alert al-w"><span class="alert-icon">⚠️</span><div>Any TGS change beyond AS 1742.3:2019 tolerances requires a PWZTMP person to re-approve before implementation.</div></div>
+        <div class="g2">
+          <div class="card">
+            <div class="card-title">Request a TGS Change</div>
+            <div class="fg"><label class="fl">What needs to change?</label><textarea class="ft" placeholder="Describe the required change..."></textarea></div>
+            <div class="fg"><label class="fl">Reason</label><select class="fs"><option>Scope change from client</option><option>Unexpected site condition</option><option>Safety concern</option><option>Equipment failure</option><option>Weather / environmental</option></select></div>
+            <div class="fg"><label class="fl">PWZTMP on site?</label><select class="fs"><option>Yes — can process immediately</option><option>No — ETA required before any change</option></select></div>
+            <button class="btn btn-g">Submit Change Request</button>
+          </div>
+          <div class="card">
+            <div class="card-title">Active Risk Register</div>
+            <div class="ci"><div class="cb done"></div><div style="flex:1;"><div class="ct">Dial Before You Dig completed</div><div class="cs">Ref: DBYD-2026-XXXXX · 18/02/2026</div></div><span class="badge bg">DONE</span></div>
+            <div class="ci"><div class="cb done"></div><div style="flex:1;"><div class="ct">HV cable isolation confirmed</div><div class="cs">Ausgrid isolation certificate attached</div></div><span class="badge bg">DONE</span></div>
+            <div class="ci"><div class="cb"></div><div style="flex:1;"><div class="ct">Unmarked service identification</div><div class="cs">Pending DBYD follow-up</div></div><span class="badge br">OPEN</span></div>
+            <div class="ci" style="border:none;"><div class="cb"></div><div style="flex:1;"><div class="ct">ROL extension</div><div class="cs">Expiry 17:00 — extension pending</div></div><span class="badge ba">PENDING</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ DEVICE ADVISOR ═══ -->
+      <div class="page" id="page-device">
+        <div class="ph"><div><div class="pt">Device <span>Advisor</span></div><div class="ps">Answer a few questions — find the right traffic control device for your site</div></div><button class="btn btn-o btn-sm" onclick="resetAdvisor()">↺ Start Over</button></div>
+        <div class="adv-wrap">
+          <div class="adv-prog"><div class="adv-bar" id="adv-bar" style="width:20%;"></div></div>
+          <div id="adv-q-wrap"></div>
+          <div id="adv-result-wrap" style="display:none;"></div>
+        </div>
+      </div>
+
+      <!-- ═══ INCIDENTS ═══ -->
+      <div class="page" id="page-incidents">
+        <div class="ph"><div><div class="pt">Incidents <span>&amp; Near Miss</span></div><div class="ps">Report and track all incidents and unsafe conditions</div></div><button class="btn btn-r btn-sm" onclick="showIncForm()">+ Report Incident</button></div>
+        <div id="inc-form" style="display:none;" class="card">
+          <div class="card-title">New Incident / Near Miss Report</div>
+          <div class="g2">
+            <div class="fg"><label class="fl">Type <span class="req">*</span></label><select class="fs"><option>Near Miss</option><option>Incident — No Injury</option><option>Incident — Injury</option><option>Property Damage</option><option>Unsafe Condition</option><option>Dangerous Occurrence</option></select></div>
+            <div class="fg"><label class="fl">Time <span class="req">*</span></label><input type="time" class="fi"></div>
+          </div>
+          <div class="fg"><label class="fl">What happened? <span class="req">*</span></label><textarea class="ft" style="min-height:80px;" placeholder="Describe exactly what happened, in sequence..."></textarea></div>
+          <div class="fg"><label class="fl">Immediate Action Taken</label><textarea class="ft" placeholder="What did you do immediately after?"></textarea></div>
+          <div class="fg"><label class="fl">Notify SafeWork NSW?</label><select class="fs"><option>No — normal channels</option><option>Yes — serious injury (call 13 10 50)</option><option>Unsure — escalate to supervisor</option></select></div>
+          <div style="display:flex;gap:7px;"><button class="btn btn-r">Submit Report</button><button class="btn btn-o" onclick="document.getElementById('inc-form').style.display='none'">Cancel</button></div>
+        </div>
+        <div class="card"><div class="card-title">Today's Incident Log</div><div style="color:var(--grey);font-size:12px;text-align:center;padding:22px;">No incidents recorded today ✓</div></div>
+      </div>
+
+      <!-- ═══ COMMS ═══ -->
+      <div class="page" id="page-comms">
+        <div class="ph"><div><div class="pt">Site <span>Communications</span></div><div class="ps">Messages, notifications, and site updates</div></div></div>
+        <div class="card">
+          <div class="cm"><div class="cm-hdr"><div class="ava" style="background:var(--green-d);color:var(--green);">SW</div><div class="cm-name">Sydney Water</div><div class="cm-time">11:45 AM</div></div><div class="cm-body">Scope update: additional 15m of pipe to be replaced on southern section. Does this require a TGS amendment?</div></div>
+          <div class="cm"><div class="cm-hdr"><div class="ava" style="background:rgba(30,96,204,.2);color:var(--blue-hi);">JS</div><div class="cm-name">J. Smith (PWZTMP)</div><div class="cm-time">12:02 PM</div></div><div class="cm-body">Reviewed. Additional 15m is within current closure zone — no amendment required. Proceeding.</div></div>
+          <div class="cm" style="border:none;"><div class="cm-hdr"><div class="ava" style="background:var(--gold-d);color:var(--gold);">HQ</div><div class="cm-name">Company HQ</div><div class="cm-time">12:30 PM</div></div><div class="cm-body">ROL extension approved. New expiry: 20:00. Brief all TCs on extended hours.</div></div>
+        </div>
+        <div class="card"><div class="card-title">Send Update</div>
+          <div class="fg"><label class="fl">Send To</label><select class="fs"><option>All parties</option><option>Client only</option><option>Traffic Controllers</option><option>HQ</option></select></div>
+          <div class="fg"><label class="fl">Message</label><textarea class="ft" placeholder="Type your update..."></textarea></div>
+          <button class="btn btn-p">Send</button></div>
+      </div>
+
+      <!-- ═══ PACK UP ═══ -->
+      <div class="page" id="page-packup">
+        <div class="ph"><div><div class="pt">Site <span>Completion</span></div><div class="ps">TCAWS INS-04 · Nothing leaves without sign-off</div></div></div>
+        <div class="alert al-i"><span class="alert-icon">📋</span><div>Complete every section in order before removing any devices or returning to normal traffic conditions.</div></div>
+        <div id="pack-sections"></div>
+        <div class="card" style="margin-top:12px;"><div class="card-title">Final Sign-Off</div>
+          <div class="g2"><div class="fg"><label class="fl">PWZTMP Name</label><input type="text" class="fi" placeholder="Full name"></div><div class="fg"><label class="fl">Licence Number</label><input type="text" class="fi" placeholder="TC number"></div></div>
+          <div class="fg"><label class="fl">Final Remarks</label><textarea class="ft" placeholder="Outstanding items, follow-up actions, observations..."></textarea></div>
+          <button class="btn btn-g">✓ Complete Site &amp; Close Job</button>
+        </div>
+      </div>
+
+      <!-- ═══ SAFETY SCORE ═══ -->
+      <div class="page" id="page-safety">
+        <div class="ph"><div><div class="pt">Safety <span>Score</span></div><div class="ps">Your team's performance · All time · NSW</div></div></div>
+        <div class="g3">
+          <div class="card" style="text-align:center;padding:22px;">
+            <div class="score-ring">
+              <svg width="110" height="110" viewBox="0 0 110 110">
+                <circle cx="55" cy="55" r="46" fill="none" stroke="var(--border)" stroke-width="9"/>
+                <circle cx="55" cy="55" r="46" fill="none" stroke="var(--green)" stroke-width="9" stroke-dasharray="289.02" stroke-dashoffset="52.02" stroke-linecap="round"/>
+              </svg>
+              <div class="score-center"><div class="score-num">82</div><div class="score-lbl">Score</div></div>
+            </div>
+            <div style="margin-top:11px;font-family:var(--font);font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--green);">Good Standing</div>
+          </div>
+          <div class="card"><div class="card-title">Streaks</div>
+            <div style="display:flex;flex-direction:column;gap:7px;">
+              <div class="streak">🔥 23 Days — No Incidents</div>
+              <div class="streak">✅ 12 Jobs — 100% Inspections</div>
+              <div class="streak">⏱️ 8 Shifts — On-Time Setup</div>
+            </div>
+          </div>
+          <div class="card"><div class="card-title">Badges Earned</div>
+            <div style="display:flex;flex-wrap:wrap;gap:9px;">
+              <div style="text-align:center;"><div style="font-size:26px;">🛡️</div><div style="font-size:8px;color:var(--grey);">Safety Shield</div></div>
+              <div style="text-align:center;"><div style="font-size:26px;">⚡</div><div style="font-size:8px;color:var(--grey);">Fast Setup</div></div>
+              <div style="text-align:center;"><div style="font-size:26px;">📋</div><div style="font-size:8px;color:var(--grey);">Checklist Pro</div></div>
+              <div style="text-align:center;"><div style="font-size:26px;">🌟</div><div style="font-size:8px;color:var(--grey);">Star TC</div></div>
+              <div style="text-align:center;"><div style="font-size:26px;">🌙</div><div style="font-size:8px;color:var(--grey);">Night Crew</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="card"><div class="card-title">Leaderboard — This Month</div>
+          <div class="lr"><div class="lt" style="color:var(--gold);font-weight:700;">🥇</div><div style="flex:1;font-size:11px;"><strong>J. Smith</strong> — PWZTMP · 0 incidents · 100% inspection rate</div><div style="font-family:var(--font);font-size:15px;font-weight:700;color:var(--gold);">94</div></div>
+          <div class="lr"><div class="lt" style="color:var(--grey);font-weight:700;">🥈</div><div style="flex:1;font-size:11px;"><strong>M. Chen</strong> — ITCP · 0 incidents · 95% inspection rate</div><div style="font-family:var(--font);font-size:15px;font-weight:700;color:var(--grey);">88</div></div>
+          <div class="lr" style="border:none;"><div class="lt" style="color:var(--amber);font-weight:700;">🥉</div><div style="flex:1;font-size:11px;"><strong>T. Williams</strong> — ITCP · 1 near-miss reported · 92% rate</div><div style="font-family:var(--font);font-size:15px;font-weight:700;color:var(--amber);">82</div></div>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<script>
+// ── NAVIGATION ────────────────────────────────────────────────
+function nav(name){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  const p=document.getElementById('page-'+name);
+  if(p)p.classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(item=>{
+    const oc=item.getAttribute('onclick')||'';
+    if(oc.includes("'"+name+"'"))item.classList.add('active');
+  });
+  if(name==='briefing')initBriefing();
+  if(name==='implement')buildChecklists();
+  if(name==='packup')buildPackUp();
+  if(name==='tgs')renderTGS(tgsLib);
+  if(name==='device')initAdvisor();
+  if(window.innerWidth<768)closeSidebar();
+}
+
+// ── SIDEBAR ───────────────────────────────────────────────────
+function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open');document.getElementById('sob').classList.toggle('open');}
+function closeSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('sob').classList.remove('open');}
+
+// ── MODALS ────────────────────────────────────────────────────
+function openModal(id){document.getElementById(id).classList.add('open');}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+document.querySelectorAll('.modal').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
+
+// ── CLOCK ─────────────────────────────────────────────────────
+function updateClock(){
+  const t=new Date().toLocaleTimeString('en-AU',{timeZone:'Australia/Sydney',hour:'2-digit',minute:'2-digit',hour12:false});
+  document.getElementById('clock').textContent='🕐 '+t+' AEDT';
+}
+setInterval(updateClock,1000);updateClock();
+
+// ── TOAST ─────────────────────────────────────────────────────
+function toast(msg){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'),2200);
+}
+
+// ── WEATHER — Open-Meteo (free, no key) ──────────────────────
+async function fetchWeather(lat=-33.888,lon=151.134){
+  try{
+    const url=`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,apparent_temperature,precipitation,rain,weathercode,windspeed_10m,windgusts_10m,uv_index,relative_humidity_2m&timezone=Australia%2FSydney&forecast_days=1`;
+    const r=await fetch(url);const d=await r.json();const c=d.current;
+    const code=c.weathercode;
+    const wIcon=wxIcon(code);const wDesc=wxDesc(code);
+    const temp=Math.round(c.temperature_2m);
+    const wind=Math.round(c.windspeed_10m);
+    const gusts=Math.round(c.windgusts_10m);
+    const uv=Math.round(c.uv_index||0);
+    // Dashboard
+    document.getElementById('wx-temp').textContent=temp+'°C';
+    document.getElementById('wx-desc').textContent=wDesc;
+    document.getElementById('wx-icon').textContent=wIcon;
+    document.getElementById('wx-wind').textContent=wind;
+    document.getElementById('wx-gusts').textContent=gusts;
+    document.getElementById('wx-uv').textContent=uv;
+    // Conditions page
+    document.getElementById('wx-temp2').textContent=temp+'°C';
+    document.getElementById('wx-desc2').textContent=wDesc;
+    document.getElementById('wx-icon2').textContent=wIcon;
+    document.getElementById('wx-wind2').textContent=wind;
+    document.getElementById('wx-gusts2').textContent=gusts;
+    document.getElementById('wx-uv2').textContent=uv;
+    // Topbar chip
+    document.getElementById('wx-chip').textContent=wIcon+' '+temp+'°C';
+    // Alerts
+    const alerts=buildWxAlerts(temp,gusts,uv);
+    document.getElementById('wx-alerts').innerHTML=alerts;
+    document.getElementById('wx-alerts2').innerHTML=alerts;
+  }catch(e){
+    document.getElementById('wx-chip').textContent='wx offline';
+  }
+}
+function buildWxAlerts(temp,gusts,uv){
+  let html='';
+  if(gusts>90)html+='<div class="alert al-d"><span class="alert-icon">🌪</span><div><strong>CEASE WORK</strong> — Gusts '+gusts+' km/h. Shut down immediately.</div></div>';
+  else if(gusts>60)html+='<div class="alert al-w"><span class="alert-icon">💨</span><div>Wind warning — Gusts '+gusts+' km/h. Check all devices are anchored.</div></div>';
+  if(uv>=11)html+='<div class="alert al-d"><span class="alert-icon">☀️</span><div>Extreme UV ('+uv+'). Full cover required. Limit outdoor exposure.</div></div>';
+  else if(uv>=8)html+='<div class="alert al-w"><span class="alert-icon">☀️</span><div>Very high UV ('+uv+'). SPF50+ and hat mandatory.</div></div>';
+  if(temp>=35)html+='<div class="alert al-d"><span class="alert-icon">🌡</span><div>'+temp+'°C — Heat stress protocol. Mandatory shade every 45 min.</div></div>';
+  else if(temp>=28)html+='<div class="alert al-w"><span class="alert-icon">🌡</span><div>'+temp+'°C — Hot conditions. Hydrate now.</div></div>';
+  return html;
+}
+function wxIcon(c){if(c===0)return'☀️';if(c<=2)return'🌤';if(c<=3)return'☁️';if(c<=48)return'🌫';if(c<=67)return'🌧';if(c<=77)return'❄️';if(c<=82)return'🌦';if(c<=99)return'⛈';return'🌤';}
+function wxDesc(c){if(c===0)return'Clear sky';if(c<=2)return'Partly cloudy';if(c===3)return'Overcast';if(c<=45)return'Fog';if(c<=57)return'Drizzle';if(c<=67)return'Rain';if(c<=77)return'Snow';if(c<=82)return'Rain showers';if(c<=99)return'Thunderstorm';return'Cloudy';}
+fetchWeather();setInterval(fetchWeather,600000);
+
+// ── GEOCODING — Nominatim (free) ──────────────────────────────
+let geoTimer;
+function geocodeDebounce(){
+  clearTimeout(geoTimer);
+  const s=document.getElementById('loc-street').value+' '+document.getElementById('loc-suburb').value;
+  if(s.trim().length<6)return;
+  geoTimer=setTimeout(()=>geocode(s),800);
+}
+async function geocode(addr){
+  try{
+    const q=encodeURIComponent(addr+', NSW, Australia');
+    const r=await fetch('https://nominatim.openstreetmap.org/search?q='+q+'&format=json&limit=1',{headers:{'User-Agent':'ClearWay-TTM/3.0'}});
+    const d=await r.json();
+    if(d.length){
+      const loc=d[0];
+      document.getElementById('geocode-hint').textContent='✅ Found: '+loc.display_name.split(',').slice(0,3).join(',');
+      fetchWeather(parseFloat(loc.lat),parseFloat(loc.lon));
+      const mf=document.getElementById('map-frame');
+      const mp=document.getElementById('map-ph');
+      const lat=parseFloat(loc.lat),lng=parseFloat(loc.lon);
+      mf.src=`https://www.openstreetmap.org/export/embed.html?bbox=${lng-.005},${lat-.005},${lng+.005},${lat+.005}&layer=mapnik&marker=${lat},${lng}`;
+      mf.style.display='block';mp.style.display='none';
+    }else{document.getElementById('geocode-hint').textContent='Address not found — check spelling';}
+  }catch(e){}
+}
+
+// ── ROL COUNTDOWN ─────────────────────────────────────────────
+let rolExpiry=null;
+function setROL(){
+  const t=document.getElementById('rol-expiry').value;
+  if(!t)return;
+  const [h,m]=t.split(':').map(Number);
+  const now=new Date();
+  rolExpiry=new Date(now.getFullYear(),now.getMonth(),now.getDate(),h,m,0);
+}
+function updateROL(){
+  const chip=document.getElementById('rol-chip');
+  if(!rolExpiry){chip.textContent='ROL —:——';chip.className='chip';return;}
+  const diff=rolExpiry-new Date();
+  if(diff<=0){chip.textContent='ROL EXPIRED';chip.className='chip rol-danger';return;}
+  const hrs=Math.floor(diff/3600000);
+  const mins=Math.floor((diff%3600000)/60000);
+  const str=`ROL ${String(hrs).padStart(2,'0')}:${String(mins).padStart(2,'0')}`;
+  chip.textContent=str;
+  if(diff<1800000)chip.className='chip rol-danger';
+  else if(diff<3600000)chip.className='chip rol-warn';
+  else chip.className='chip';
+}
+setInterval(updateROL,10000);updateROL();
+
+// ── WIZARD STATE ──────────────────────────────────────────────
+const sel={};let curStep=1;
+function selOpt(key,val,el){
+  el.closest('.ogrid').querySelectorAll('.ocard').forEach(c=>c.classList.remove('sel'));
+  el.classList.add('sel');sel[key]=val;
+}
+function togOpt(key,val,el){
+  el.classList.toggle('multi-sel');
+  if(!sel[key])sel[key]=[];
+  if(el.classList.contains('multi-sel'))sel[key].push(val);
+  else sel[key]=sel[key].filter(v=>v!==val);
+}
+function nextStep(from){
+  document.getElementById('step'+from).style.display='none';
+  curStep=from+1;
+  if(curStep<=6){
+    const next=document.getElementById('step'+curStep);
+    if(next)next.style.display='block';
+  }
+  updateWprog();
+}
+function prevStep(from){
+  document.getElementById('step'+from).style.display='none';
+  curStep=from-1;
+  document.getElementById('step'+curStep).style.display='block';
+  updateWprog();
+}
+function updateWprog(){
+  for(let i=1;i<=6;i++){
+    const el=document.getElementById('ws'+i);if(!el)continue;
+    el.classList.remove('done','active');
+    if(i<curStep)el.classList.add('done');
+    else if(i===curStep)el.classList.add('active');
+  }
+}
+function resetWizard(){
+  for(let i=1;i<=6;i++){const s=document.getElementById('step'+i);if(s)s.style.display=i===1?'block':'none';}
+  document.getElementById('step6').innerHTML='';
+  curStep=1;updateWprog();for(const k in sel)delete sel[k];
+}
+
+// ── GENERATE PLAN ─────────────────────────────────────────────
+function generatePlan(){
+  for(let i=1;i<=5;i++){const s=document.getElementById('step'+i);if(s)s.style.display='none';}
+  const s6=document.getElementById('step6');s6.style.display='block';
+  for(let i=1;i<=6;i++){const w=document.getElementById('ws'+i);if(w){w.classList.remove('active');w.classList.add('done');}}
+
+  const speed=parseInt(document.getElementById('loc-speed').value)||50;
+  const lanes=sel['lanes']||'one-lane';
+  const client=document.getElementById('loc-client').value||'Client';
+  const street=document.getElementById('loc-street').value||'Site Location';
+  const tm=document.getElementById('tm-name').value||'—';
+
+  let tgsCode,tgsName,tgsDesc,devices;
+  if(speed<=50&&lanes==='shoulder'){tgsCode='A1-50';tgsName='Shoulder / Kerb Works — Urban';tgsDesc='Works within shoulder or kerb on urban roads ≤50 km/h with no lane closure required.';devices=[{q:2,n:'ROAD WORK AHEAD signs'},{q:4,n:'Traffic cones'},{q:1,n:'END ROAD WORK sign'}];}
+  else if(speed<=50&&(lanes==='one-lane'||lanes==='partial')){tgsCode='A2-50';tgsName='One Lane Closed — Alternating Urban';tgsDesc='Single lane closure with alternating one-way traffic on urban ≤50 km/h road.';devices=[{q:4,n:'ROAD WORK AHEAD'},{q:2,n:'LANE CLOSED AHEAD'},{q:1,n:'PORTABOOM™ PB4000 or portable signals'},{q:12,n:'Traffic cones'},{q:2,n:'Traffic Controllers (PWZTMP/ITCP)'}];}
+  else if(speed<=70&&lanes==='full'){tgsCode='B3-70';tgsName='Full Closure — Arterial';tgsDesc='Full arterial closure. Detour plan and ROL required. PWZTMP throughout.';devices=[{q:4,n:'ROAD CLOSED signs'},{q:1,n:'Detour signage package'},{q:2,n:'TCs at each closure point'},{q:1,n:'PORTABOOM™ PB4000'}];}
+  else if(speed<=70){tgsCode='B1-60';tgsName='Partial Lane — Arterial';tgsDesc='Works encroaching partially into a travel lane on a 60–70 km/h arterial road.';devices=[{q:3,n:'ROAD WORK AHEAD'},{q:1,n:'CHANGED TRAFFIC CONDITIONS'},{q:8,n:'Traffic cones + delineators'},{q:1,n:'PORTABOOM™ PB4000'}];}
+  else if(speed>=80&&lanes==='full'){tgsCode='C4-100';tgsName='Full Closure — Highway';tgsDesc='Full highway closure. Signed detour, ROL, PWZTMP, TfNSW coordination required.';devices=[{q:6,n:'ROAD CLOSED + advance signs'},{q:1,n:'Signed detour package'},{q:2,n:'TMA vehicles'},{q:2,n:'PWZTMP TCs'}];}
+  else{tgsCode='C3-100';tgsName='Lane Closure — Highway';tgsDesc='Single lane closure on 80–110 km/h highway. TMA mandatory. PWZTMP required.';devices=[{q:2,n:'ROADWORK AHEAD (2.4km advance)'},{q:4,n:'VMS boards'},{q:20,n:'Cones + delineators'},{q:1,n:'Truck Mounted Attenuator (TMA)'},{q:1,n:'PORTABOOM™ PB4000'}];}
+
+  const merge=speed*2;const lateral=speed;
+  const quals=['ITCP (RIIWHS302E)'];
+  if(speed>=80||lanes==='full')quals.push('PWZTMP (mandatory for this site)');
+  if(document.getElementById('night').value!=='no')quals.push('Night Works endorsement');
+
+  const warns=[];
+  if(document.getElementById('loc-auth').value==='tfnsw'&&document.getElementById('rol-status').value==='na')
+    warns.push({t:'al-w',icon:'⚠️',title:'ROL likely required',body:'Works on a TfNSW state road require a Road Occupancy Licence. Confirm before commencing.'});
+  if(speed>=80)warns.push({t:'al-w',icon:'💨',title:'High-speed environment',body:`Minimum advance warning at ${speed} km/h: ${merge}m merge taper, ${lateral}m lateral shift. Refer TCAWS Table 6.1.`});
+  warns.push({t:'al-c',icon:'🚦',title:'PORTABOOM™ PB4000 noted',body:'NSW TCAWS requires a portable boom barrier (not stop/slow bat) where posted speed exceeds 45 km/h and traffic must be stopped.'});
+
+  const devsHTML=devices.map(d=>`<div class="dev-item"><div class="dev-qty">${d.q}×</div><div class="dev-n">${d.n}</div></div>`).join('');
+  const warnsHTML=warns.map(w=>`<div class="alert ${w.t}"><span class="alert-icon">${w.icon}</span><div><strong>${w.title}</strong> — ${w.body}</div></div>`).join('');
+  const qualsHTML=quals.map(q=>`<div class="ci"><div class="cb done"></div><div style="flex:1;"><div class="ct">${q}</div></div></div>`).join('');
+
+  s6.innerHTML=`
+    <div class="alert al-s"><span class="alert-icon">✅</span><div><strong>Plan generated.</strong> Review and have a PWZTMP-qualified person approve before site works begin.</div></div>
+    ${warnsHTML}
+    <div class="tgs-hero">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;">
+        <div><div class="tgs-code">${tgsCode}</div><div class="tgs-name">${tgsName}</div><div class="tgs-desc">${tgsDesc}</div></div>
+        <a href="https://roads-waterways.transport.nsw.gov.au/business-industry/partners-suppliers/documents/technical-manuals/traffic-control-at-worksites-manual-v6-1.pdf" target="_blank" style="background:rgba(0,200,224,.2);color:var(--cyan);border:1px solid rgba(0,200,224,.3);border-radius:4px;padding:5px 11px;font-family:var(--font);font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;text-decoration:none;white-space:nowrap;">TCAWS ↗</a>
+      </div>
+      <div class="dev-grid">${devsHTML}</div>
+    </div>
+    <div class="g2" style="margin-top:14px;">
+      <div class="card"><div class="card-title">Required Qualifications</div>${qualsHTML}</div>
+      <div class="card"><div class="card-title">AS 1742.3 Distances · ${speed} km/h</div>
+        <div class="ci"><div style="flex:1;"><div class="ct">Merge taper length (2D)</div></div><span style="font-family:var(--font);font-size:16px;font-weight:700;color:var(--cyan);">${merge}m</span></div>
+        <div class="ci" style="border:none;"><div style="flex:1;"><div class="ct">Lateral shift (D)</div></div><span style="font-family:var(--font);font-size:16px;font-weight:700;color:var(--cyan);">${lateral}m</span></div>
+      </div>
+    </div>
+    <div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:14px;">
+      <button class="btn btn-p" onclick="nav('briefing')">🎯 Start Site Briefing →</button>
+      <button class="btn btn-o" onclick="nav('tgs')">🗺 View TGS Library</button>
+      <button class="btn btn-o" onclick="resetWizard()">↺ New Plan</button>
+    </div>`;
+}
+
+// ── BRIEFING CARDS ────────────────────────────────────────────
+const defaultCards=[
+  {icon:'🗺',title:'Your TGS Scheme',body:'This is your approved layout. <span class="bc-hi">Set it up exactly as shown</span> — no deviations without PWZTMP approval.'},
+  {icon:'📏',title:'Required Distances',body:'Check your advance warning sign distances before opening. <span class="bc-wa">Wrong distances = compliance failure</span>.'},
+  {icon:'🚦',title:'PORTABOOM™ Required',body:'Posted speed >45 km/h means a <span class="bc-hi">portable boom barrier</span> — not a stop/slow bat — when traffic must be stopped. NSW TCAWS requirement.'},
+  {icon:'📋',title:'Your ROL',body:'Know your <span class="bc-wa">permit expiry time</span>. You must cease works before expiry if no extension is confirmed. Contact HQ at T-30 minutes.'},
+  {icon:'☀️',title:"Today's Weather",body:'Check current conditions in the Conditions tab. Heat, wind, and UV alerts update automatically from BOM.'},
+  {icon:'⚠️',title:'Underground Hazards',body:'Dial Before You Dig confirmed. <span class="bc-da">Hand dig only</span> within 500mm of any marked service. Stop immediately if unknown service is found.'},
+  {icon:'📞',title:'Emergency Contacts',body:'SafeWork NSW: <span class="bc-hi">13 10 50</span> · Police: <span class="bc-hi">000</span> · Jemena Gas: <span class="bc-hi">131 909</span> · Ausgrid: <span class="bc-hi">13 13 88</span> · TfNSW: <span class="bc-hi">1800 700 111</span>'},
+  {icon:'✅',title:"You're Ready",body:'Complete your INS-01 verification checklist in the <span class="bc-hi">Implement tab</span> before opening the site. <span class="bc-da">Nothing opens until that\'s signed off.</span>'},
+];
+let bIdx=0,bViewed=[];
+function initBriefing(){
+  bIdx=0;bViewed=[];
+  const slider=document.getElementById('brief-slider');
+  const dots=document.getElementById('brief-dots');
+  if(!slider)return;
+  slider.innerHTML=defaultCards.map((c,i)=>`
+    <div class="bcard"><div class="bc-icon">${c.icon}</div>
+    <div class="bc-title">${c.title}</div>
+    <div class="bc-body">${c.body}</div>
+    <div style="font-family:var(--mono);font-size:8px;color:var(--grey);margin-top:12px;letter-spacing:1px;">CARD ${i+1} OF ${defaultCards.length}</div></div>`).join('');
+  dots.innerHTML=defaultCards.map((c,i)=>`<div class="bdot ${i===0?'active':''}" onclick="goCard(${i})"></div>`).join('');
+  slider.style.transform='translateX(0)';
+  bViewed=[0];updateBriefStatus();
+}
+function nextCard(){
+  if(bIdx<defaultCards.length-1){bIdx++;goCard(bIdx);}
+}
+function prevCard(){if(bIdx>0){bIdx--;goCard(bIdx);}}
+function goCard(i){
+  bIdx=i;
+  document.getElementById('brief-slider').style.transform=`translateX(-${i*100}%)`;
+  document.querySelectorAll('.bdot').forEach((d,j)=>d.classList.toggle('active',j===i));
+  if(!bViewed.includes(i))bViewed.push(i);
+  updateBriefStatus();
+}
+function updateBriefStatus(){
+  const pct=bViewed.length;const total=defaultCards.length;
+  document.getElementById('brief-status').textContent=pct+' / '+total+' read';
+  document.getElementById('brief-status').className='badge '+(pct>=total?'bg':'ba');
+  if(pct>=total){document.getElementById('brief-signoff').style.display='block';document.getElementById('next-card-btn').textContent='Done ✓';}
+}
+function skipBriefing(){bViewed=defaultCards.map((_,i)=>i);updateBriefStatus();toast('Briefing skipped');}
+function signOffBriefing(){nav('implement');toast('Site briefing signed off ✓');}
+
+// ── CHECKLISTS ────────────────────────────────────────────────
+const setupItems=[
+  {t:'TGS approved and signed by PWZTMP or ITCP',s:'Signed document must be on site before installation begins',r:'Mandatory'},
+  {t:'All devices in correct position per TGS',s:'Compare each device position against approved TGS drawing',r:'Verify'},
+  {t:'Advance warning signs at correct distances',s:'Refer TCAWS Table 6.1 for minimum distances by speed zone',r:'Verify'},
+  {t:'Buffer and taper lengths compliant',s:'No workers or plant in the buffer zone',r:'Mandatory'},
+  {t:'ROAD WORK AHEAD — both approaches installed',s:'Both directions must be warned before the closure begins',r:'Mandatory'},
+  {t:'Traffic cones / delineators correctly spaced',s:'Spacing per TCAWS — closer in transition taper',r:'Verify'},
+  {t:'PORTABOOM™ PB4000 or TC available and briefed',s:'TC-controlled alternating — both ends must have qualified TC',r:'Mandatory'},
+  {t:'Night works lighting installed (if applicable)',s:'Illumination meets minimum lux at all devices',r:'If Applicable'},
+  {t:'Pedestrian management in place (if applicable)',s:'Safe path maintained or clear alternative route signed',r:'If Applicable'},
+  {t:'Emergency contacts confirmed with site team',s:'Police, SafeWork NSW, utility emergency lines',r:'Mandatory'},
+  {t:'TMP and TGS copies available on site',s:'Hardcopy or accessible digital — at all times',r:'Mandatory'},
+  {t:'ROL / permit on site and within validity',s:'Expiry time confirmed — works cease before expiry',r:'Mandatory'},
+];
+const shiftItems=[
+  {t:'All devices in position per TGS',s:'No displacement from traffic, weather, or site activity',r:'Check'},
+  {t:'Sign faces clean and visible',s:'Remove debris, mud, or obstruction from all sign faces',r:'Check'},
+  {t:'Cones and delineators upright and in position',s:'Re-set any displaced devices immediately',r:'Check'},
+  {t:'Buffer zone clear of workers and plant',s:'No person or equipment in buffer during traffic movements',r:'Safety'},
+  {t:'TC at post and alert',s:'Traffic Controllers must remain at their post at all times',r:'Safety'},
+  {t:'Night lighting operational (if applicable)',s:'All lights functional — replace failed units before next cycle',r:'If Applicable'},
+];
+const weeklyItems=[
+  {t:'Full TGS verification against approved drawing',s:'Compare every device position against the approved TGS',r:'PWZTMP Only'},
+  {t:'Sign condition — structural and reflectivity',s:'Inspect for damage, fading, or delamination',r:'Inspect'},
+  {t:'VMS and VSLS operational and displaying correctly',s:'Check messages, positioning, and power supply',r:'Inspect'},
+  {t:'Registered trailers clear of travel lanes',s:'VMS trailers, light towers — confirm setback from carriageway',r:'Inspect'},
+  {t:'Termination signs correctly located',s:'D sign must be downstream of last work activity',r:'Verify'},
+  {t:'Inspection records up to date',s:'All shift inspections completed and signed',r:'Verify'},
+];
+const csState={setup:{},shift:{},weekly:{}};
+function buildChecklists(){
+  renderCL('impl-checklist',setupItems,'setup');
+  renderCL('shift-checklist',shiftItems,'shift');
+  renderCL('weekly-checklist',weeklyItems,'weekly');
+  updateImplProg();
+}
+function renderCL(id,items,key){
+  const c=document.getElementById(id);if(!c)return;
+  const rc={'Mandatory':'br','PWZTMP Only':'ba','If Applicable':'bx',Safety:'br',Check:'bb',Inspect:'bb',Verify:'bb'};
+  c.innerHTML=items.map((item,i)=>`
+    <div class="ci" id="${key}-row-${i}">
+      <div class="cb ${csState[key][i]?'done':''}" onclick="toggleCheck('${key}',${i})" id="${key}-cb-${i}"></div>
+      <div style="flex:1;"><div class="ct">${item.t}</div><div class="cs">${item.s}</div></div>
+      <span class="badge ${rc[item.r]||'bx'}">${item.r}</span>
+    </div>`).join('');
+}
+function toggleCheck(key,i){
+  csState[key][i]=!csState[key][i];
+  document.getElementById(`${key}-cb-${i}`).classList.toggle('done',csState[key][i]);
+  updateImplProg();
+}
+function updateImplProg(){
+  const done=Object.values(csState.setup).filter(Boolean).length;
+  const el=document.getElementById('impl-prog');
+  if(el){el.textContent=done+' / '+setupItems.length;el.style.color=done===setupItems.length?'var(--green)':'var(--grey)';}
+  const nb=document.getElementById('nb-impl');
+  if(nb)nb.textContent=done+'/'+setupItems.length;
+}
+function switchTab(page,tab,el){
+  const tabs={impl:['setup','shift','weekly'],comms:['all','client','tc','hq']};
+  if(page==='impl'){
+    ['setup','shift','weekly'].forEach(t=>{const e=document.getElementById('impl-'+t);if(e)e.style.display=t===tab?'block':'none';});
+  }
+  el.closest('.tabs').querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+}
+function signOffImpl(){
+  const done=Object.values(csState.setup).filter(Boolean).length;
+  if(done<setupItems.length&&!confirm(setupItems.length-done+' items not checked. Sign off anyway?'))return;
+  toast('✅ Site opened to traffic. Shift timer started.');
+  const ss=document.getElementById('site-start');
+  if(ss)ss.textContent=new Date().toLocaleTimeString('en-AU',{timeZone:'Australia/Sydney',hour:'2-digit',minute:'2-digit',hour12:false})+' AEDT';
+}
+
+// ── PACK UP ───────────────────────────────────────────────────
+const packData=[
+  {title:'Works Complete',icon:'🏗',items:[{t:'All work activities finished and area made safe',s:'No open excavations, loose materials, or protruding hazards'},{t:'Reinstatement completed to required standard',s:'Surface reinstatement approved by supervisor or client'},{t:'Final walk-through of entire worksite',s:'Walk the full length before any devices are removed'}]},
+  {title:'Device Removal — Upstream First',icon:'🚧',items:[{t:'Termination signs removed last',s:'Downstream termination signs are the last devices out'},{t:'All cones and delineators collected — count matches TGS',s:'Count every device against the TGS device list'},{t:'Advance warning signs removed working outward from site',s:'Remove advance warning signs last'},{t:'All devices loaded and secured on vehicle',s:'Nothing left on site or roadside'}]},
+  {title:'Site Clearance',icon:'🧹',items:[{t:'Carriageway swept and cleared',s:'No debris, sand, or material on road surface'},{t:'Footpath / shared path reinstated',s:'Pedestrian routes returned to normal conditions'},{t:'All temporary markings removed',s:'Temporary line markings removed if applied'},{t:'Waste and rubbish removed from site',s:'Zero waste left on site'}]},
+  {title:'Documentation',icon:'📋',items:[{t:'All inspection records completed and signed',s:'Shift, weekly, and any additional inspection records'},{t:'Incident reports lodged (if any)',s:'All near misses and incidents formally reported'},{t:'Before and after photos taken and filed',s:'Archived against job number'},{t:'TMP and TGS originals filed in job record',s:'Signed documents stored — accessible for 7 years'}]},
+];
+let packState={},packOpen={};
+function buildPackUp(){
+  const c=document.getElementById('pack-sections');if(!c)return;
+  c.innerHTML=packData.map((s,si)=>`
+    <div class="pack-section">
+      <div class="pack-bar"><div class="pack-fill" id="ppf-${si}" style="width:0%;"></div></div>
+      <div class="pack-hdr" onclick="togglePack(${si})">
+        <div style="display:flex;align-items:center;gap:8px;"><span style="font-size:16px;">${s.icon}</span><div class="pack-title">${s.title}</div></div>
+        <span class="badge bx" id="ptag-${si}">0 / ${s.items.length}</span>
+      </div>
+      <div class="pack-body" id="pbody-${si}">
+        ${s.items.map((item,ii)=>`
+          <div class="ci" id="prow-${si}-${ii}">
+            <div class="cb ${packState[si+'_'+ii]?'done':''}" onclick="togglePack_item(${si},${ii})" id="pcb-${si}-${ii}"></div>
+            <div style="flex:1;"><div class="ct">${item.t}</div><div class="cs">${item.s}</div></div>
+          </div>`).join('')}
+        <div style="height:10px;"></div>
+      </div>
+    </div>`).join('');
+}
+function togglePack(si){
+  packOpen[si]=!packOpen[si];
+  const b=document.getElementById('pbody-'+si);
+  if(b)b.style.maxHeight=packOpen[si]?'400px':'0';
+}
+function togglePack_item(si,ii){
+  const key=si+'_'+ii;packState[key]=!packState[key];
+  document.getElementById(`pcb-${si}-${ii}`).classList.toggle('done',packState[key]);
+  const total=packData[si].items.length;
+  const done=packData[si].items.filter((_,i)=>packState[si+'_'+i]).length;
+  const tag=document.getElementById('ptag-'+si);
+  if(tag){tag.textContent=`${done} / ${total}`;tag.className='badge '+(done===total?'bg':'bx');}
+  const bar=document.getElementById('ppf-'+si);
+  if(bar)bar.style.width=`${(done/total)*100}%`;
+}
+
+// ── TGS LIBRARY ───────────────────────────────────────────────
+const tgsLib=[
+  {code:'A1-50',name:'Shoulder / Kerb Works',speed:'low',lane:'shoulder',desc:'Works within shoulder or kerb on urban roads ≤50 km/h. No lane closure required.',page:142},
+  {code:'A2-50',name:'One Lane Closed — Alternating',speed:'low',lane:'one-lane',desc:'Single lane closure with alternating traffic on urban ≤50 km/h roads. TC or portable signals required.',page:148},
+  {code:'A3-50',name:'Full Road Closure — Urban',speed:'low',lane:'full',desc:'Full closure on urban ≤50 km/h road. ROL required. Detour plan mandatory.',page:155},
+  {code:'B1-60',name:'Shoulder / Partial Lane — Arterial',speed:'mid',lane:'shoulder',desc:'Shoulder encroachment on 60–70 km/h arterial. Delineation and advance warning required.',page:162},
+  {code:'B2-70',name:'Lane Closure — Arterial',speed:'mid',lane:'one-lane',desc:'Single lane closure on 60–70 km/h urban arterial. Traffic controllers required.',page:168},
+  {code:'B3-70',name:'Full Closure — Arterial',speed:'mid',lane:'full',desc:'Full arterial closure. Detour plan and ROL required. PWZTMP throughout.',page:175},
+  {code:'C1-100',name:'Shoulder Works — Rural',speed:'high',lane:'shoulder',desc:'Shoulder works on 80–100 km/h rural road. Extended advance warning distances apply.',page:182},
+  {code:'C3-100',name:'Lane Closure — Highway',speed:'high',lane:'one-lane',desc:'Single lane closure on 80–110 km/h highway. TMA mandatory. PWZTMP required.',page:192},
+  {code:'C4-100',name:'Full Closure — Highway',speed:'high',lane:'full',desc:'Full highway closure. Signed detour, ROL, PWZTMP, and TfNSW coordination required.',page:198},
+];
+const tcawsPDF='https://roads-waterways.transport.nsw.gov.au/business-industry/partners-suppliers/documents/technical-manuals/traffic-control-at-worksites-manual-v6-1.pdf';
+const speedLbl={low:'≤50 km/h',mid:'60–70 km/h',high:'80–110 km/h'};
+const laneLbl={'shoulder':'Shoulder','one-lane':'One Lane Closed','full':'Full Closure'};
+function filterTGS(){
+  const sp=document.getElementById('tgs-spd').value;
+  const ln=document.getElementById('tgs-ln').value;
+  renderTGS(tgsLib.filter(t=>(!sp||t.speed===sp)&&(!ln||t.lane===ln)));
+}
+function renderTGS(list){
+  const c=document.getElementById('tgs-cards');if(!c)return;
+  if(!list.length){c.innerHTML='<div style="color:var(--grey);font-size:12px;padding:22px;">No TGS layouts match your filters.</div>';return;}
+  c.innerHTML='<div class="g2">'+list.map(t=>`
+    <div class="card" style="transition:transform .2s;">
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:10px;">
+        <div style="font-size:34px;font-weight:900;color:var(--cyan);letter-spacing:-1px;font-family:var(--font);line-height:1;">${t.code}</div>
+        <div>
+          <div style="font-size:13px;font-weight:700;">${t.name}</div>
+          <div style="display:flex;gap:5px;margin-top:5px;">
+            <span class="badge bc">${speedLbl[t.speed]}</span>
+            <span class="badge bb">${laneLbl[t.lane]}</span>
+          </div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--grey);line-height:1.6;margin-bottom:12px;">${t.desc}</div>
+      <div style="display:flex;gap:6px;">
+        <a href="${tcawsPDF}#page=${t.page}" target="_blank" class="btn btn-p btn-sm" style="text-decoration:none;">View in TCAWS ↗</a>
+        <a href="${tcawsPDF}" target="_blank" class="btn btn-o btn-sm" style="text-decoration:none;">Full Manual ↗</a>
+      </div>
+    </div>`).join('')+'</div>';
+}
+
+// ── DEVICE ADVISOR ────────────────────────────────────────────
+const advTree={
+  id:'start',step:1,total:5,label:'Site Type',
+  q:'What type of worksite or access control situation do you have?',
+  hint:'Select the option that best describes your primary use case.',
+  opts:[
+    {icon:'🚧',label:'Active Road Works',desc:'Maintenance, construction, or utility work on roads',next:{
+      id:'road-speed',step:2,total:5,label:'Speed Zone',
+      q:'What is the posted speed limit in the work zone?',
+      hint:'Speed limit determines the level of protection required.',
+      opts:[
+        {icon:'🐢',label:'Up to 60 km/h',desc:'Urban / residential',next:{
+          id:'road-duration',step:3,total:5,label:'Duration',
+          q:'How long will works be in place?',hint:'',
+          opts:[
+            {icon:'⚡',label:'Short-term (hours to days)',desc:'Emergency, one-day works',next:{result:'pb4000-basic'}},
+            {icon:'📅',label:'Medium to long-term (weeks+)',desc:'Major projects',next:{result:'pb4000-tastrack'}},
+          ]
+        }},
+        {icon:'🏎️',label:'70 km/h or above',desc:'Arterial roads, highways',next:{result:'pb4000-tma'}},
+      ]
+    }},
+    {icon:'🏢',label:'Facility Access Control',desc:'Car park, industrial site, event or venue',next:{
+      id:'facility-duration',step:2,total:5,label:'Permanence',
+      q:'Is this a permanent or temporary installation?',hint:'',
+      opts:[
+        {icon:'⚙️',label:'Permanent — fixed installation',desc:'Ongoing access control',next:{result:'pb4000-tastrack'}},
+        {icon:'🔄',label:'Temporary — relocatable',desc:'Trial period or flexible setup',next:{
+          id:'facility-weight',step:3,total:5,label:'Portability',
+          q:'How important is one-person deployability?',hint:'Sub-20kg is critical if no machinery available.',
+          opts:[
+            {icon:'💪',label:'Must be one-person deployable',desc:'Sub-20kg, no forklift needed',next:{result:'miniboom'}},
+            {icon:'🏋️',label:'Not critical — can use machinery',desc:'Forklift or team can deploy',next:{result:'pb4000-basic'}},
+          ]
+        }},
+      ]
+    }},
+    {icon:'🎪',label:'Events / Crowd Control',desc:'Festivals, sporting events, emergency management',next:{result:'pb4000-event'}},
+    {icon:'🚨',label:'Emergency / Rapid Deployment',desc:'Incident response, rapid road closure',next:{result:'pb4000-rapid'}},
+  ]
+};
+const advResults={
+  'pb4000-basic':{product:'PORTABOOM™ PB4000',tag:'The flagship portable boom barrier for road works and facility access.',specs:[{l:'Weight',v:'~70 kg'},{l:'Arm Span',v:'Up to 6m'},{l:'Speed Rating',v:'≤110 km/h with TGS'},{l:'Price',v:'$5,995–$10,495'}],note:'Ideal for urban and arterial road works. TC or remote operation. 1,500+ units deployed across Australia.',cta:'Contact NSP Distribution'},
+  'pb4000-tastrack':{product:'PORTABOOM™ PB4000 + TASTrack',tag:'PB4000 with IoT fleet management, pre-start compliance, and remote monitoring.',specs:[{l:'Platform',v:'TASTrack IoT'},{l:'Monitoring',v:'Real-time'},{l:'Pre-Start',v:'Digital compliance'},{l:'Data',v:'Vehicle counting'}],note:'Best for long-term projects, fleet management, and clients requiring data reporting.',cta:'Contact TAS for TASTrack demo'},
+  'pb4000-tma':{product:'PORTABOOM™ PB4000 + TMA',tag:'High-speed highway works. PB4000 paired with Truck Mounted Attenuator for speeds ≥70 km/h.',specs:[{l:'Speed Zone',v:'≥70 km/h'},{l:'TMA Required',v:'Mandatory'},{l:'PWZTMP',v:'Required on site'},{l:'ROL',v:'Likely required'}],note:'High-speed environments require additional physical protection. PB4000 provides the boom control; TMA provides impact protection.',cta:'Contact NSP Distribution'},
+  'miniboom':{product:'MINIBOOM TZ30',tag:'Sub-20kg smart boom barrier with integrated traffic light. One-person deploy. Subscription model.',specs:[{l:'Weight',v:'<20 kg'},{l:'Hardware',v:'$4,000'},{l:'Subscription',v:'$65–$125/week'},{l:'Launch',v:'October 2026'}],note:'The TZ30 program. Designed for facilities requiring one-person deployment without machinery. Traffic light built in — no separate TC needed at lower speeds.',cta:'Join TZ30 waitlist'},
+  'pb4000-event':{product:'PORTABOOM™ PB4000',tag:'Event and crowd management configuration with rapid deployment kit.',specs:[{l:'Deploy Time',v:'<5 minutes'},{l:'Operation',v:'Manual or remote'},{l:'Power',v:'Battery or 240V'},{l:'Qty Discount',v:'Available on fleet orders'}],note:'Used at major events for vehicle exclusion zones, VIP access, and emergency access control.',cta:'Contact NSP Distribution'},
+  'pb4000-rapid':{product:'PORTABOOM™ PB4000 — Rapid Response',tag:'Emergency deployment configuration. Pre-rigged, operator-briefed, ready for rapid road closure.',specs:[{l:'Deploy Time',v:'<3 minutes'},{l:'Weight',v:'~70 kg'},{l:'Operator',v:'1–2 persons'},{l:'Integration',v:'TASTrack optional'}],note:'Pre-positioned units for emergency services, incident response, and critical infrastructure protection.',cta:'Contact TAS for emergency fleet pricing'},
+};
+let advHistory=[];
+function initAdvisor(){
+  advHistory=[];
+  renderAdvQ(advTree);
+}
+function renderAdvQ(node){
+  const wrap=document.getElementById('adv-q-wrap');
+  const res=document.getElementById('adv-result-wrap');
+  if(!wrap)return;
+  wrap.style.display='block';res.style.display='none';
+  const pct=Math.round((node.step/node.total)*100);
+  document.getElementById('adv-bar').style.width=pct+'%';
+  wrap.innerHTML=`
+    <div class="adv-card">
+      <div class="adv-step">Step ${node.step} of ${node.total} — ${node.label}</div>
+      <div class="adv-q">${node.q}</div>
+      ${node.hint?`<div class="adv-hint">${node.hint}</div>`:''}
+      <div class="ogrid">${node.opts.map((o,i)=>`
+        <div class="ocard" onclick="advSelect(${i})">
+          <div class="oi">${o.icon}</div>
+          <div class="ol">${o.label}</div>
+          ${o.desc?`<div class="od">${o.desc}</div>`:''}
+        </div>`).join('')}
+      </div>
+      ${advHistory.length?`<div style="margin-top:14px;"><button class="btn btn-o btn-sm" onclick="advBack()">← Back</button></div>`:''}
+    </div>`;
+  wrap._node=node;
+}
+function advSelect(i){
+  const node=document.getElementById('adv-q-wrap')._node;
+  const opt=node.opts[i];
+  advHistory.push(node);
+  if(opt.next.result){renderAdvResult(opt.next.result);}
+  else{renderAdvQ(opt.next);}
+}
+function advBack(){
+  if(advHistory.length){renderAdvQ(advHistory.pop());}
+}
+function renderAdvResult(key){
+  const r=advResults[key];
+  const wrap=document.getElementById('adv-q-wrap');
+  const res=document.getElementById('adv-result-wrap');
+  wrap.style.display='none';res.style.display='block';
+  document.getElementById('adv-bar').style.width='100%';
+  res.innerHTML=`
+    <div class="adv-card" style="border-color:var(--gold);">
+      <div style="font-family:var(--mono);font-size:8px;color:var(--gold);letter-spacing:2px;text-transform:uppercase;margin-bottom:9px;">RECOMMENDED SOLUTION</div>
+      <div class="res-product">${r.product}</div>
+      <div style="font-size:12px;color:var(--grey);margin-top:6px;line-height:1.6;">${r.tag}</div>
+      <div class="res-specs">${r.specs.map(s=>`<div class="res-spec"><div class="rsl">${s.l}</div><div class="rsv">${s.v}</div></div>`).join('')}</div>
+      <div class="alert al-c" style="margin-top:14px;"><span class="alert-icon">ℹ️</span><div>${r.note}</div></div>
+      <div style="display:flex;gap:7px;margin-top:14px;flex-wrap:wrap;">
+        <button class="btn btn-g btn-sm">${r.cta}</button>
+        <button class="btn btn-o btn-sm" onclick="resetAdvisor()">↺ Start Over</button>
+        ${advHistory.length?`<button class="btn btn-o btn-sm" onclick="advBack()">← Back</button>`:''}
+      </div>
+    </div>`;
+}
+function resetAdvisor(){initAdvisor();}
+
+// ── TAPER CALCULATOR ──────────────────────────────────────────
+let tcSpeed=50,tcWidth=3.5;
+function setTCspeed(el,spd){
+  tcSpeed=spd;
+  el.closest('#tc-speeds').querySelectorAll('.tbtn').forEach(b=>b.style.borderColor='');
+  el.style.borderColor='var(--cyan)';el.style.color='var(--cyan)';
+  calcTaper();
+}
+function setTCwidth(el,w){
+  tcWidth=w;
+  el.closest('#tc-widths').querySelectorAll('.tbtn').forEach(b=>b.style.borderColor='');
+  el.style.borderColor='var(--cyan)';el.style.color='var(--cyan)';
+  calcTaper();
+}
+function calcTaper(){
+  const res=document.getElementById('tc-result');if(!res)return;
+  const merge=tcSpeed*2;const lateral=tcSpeed;
+  const formula=Math.round((tcWidth*tcSpeed*tcSpeed)/120);
+  const coneSpacing=tcSpeed<=50?4:tcSpeed<=70?12:18;
+  const minConeH=tcSpeed>=80?700:450;
+  const bufferLen=tcSpeed>=80?30:20;
+  res.style.display='block';
+  res.innerHTML=`
+    <div class="g2" style="margin-bottom:10px;">
+      <div class="sc" style="text-align:center;padding:12px;">
+        <div class="sv" style="color:var(--cyan);font-size:28px;">${merge}m</div>
+        <div class="sl">Merge Taper (2D)</div>
+      </div>
+      <div class="sc" style="text-align:center;padding:12px;">
+        <div class="sv" style="color:var(--cyan);font-size:28px;">${lateral}m</div>
+        <div class="sl">Lateral Shift (D)</div>
+      </div>
+      <div class="sc" style="text-align:center;padding:12px;">
+        <div class="sv" style="color:var(--gold);font-size:28px;">${formula}m</div>
+        <div class="sl">Formula W×S²/120</div>
+      </div>
+      <div class="sc" style="text-align:center;padding:12px;">
+        <div class="sv" style="color:var(--amber);font-size:28px;">${bufferLen}m</div>
+        <div class="sl">Buffer Length</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px;">
+      <div class="sc" style="padding:9px;flex:1;text-align:center;"><div style="font-size:14px;font-weight:700;">${coneSpacing}m max</div><div class="sl">Cone spacing</div></div>
+      <div class="sc" style="padding:9px;flex:1;text-align:center;"><div style="font-size:14px;font-weight:700;">${minConeH}mm</div><div class="sl">Min cone height</div></div>
+    </div>
+    <div style="font-size:10px;color:var(--grey);line-height:1.5;">D-system from AS 1742.3:2019. Use the larger of the 2D and formula values. PWZTMP must verify all distances on site. Results for ${tcSpeed} km/h · ${tcWidth}m lane.</div>`;
+}
+
+// ── SPEED ADVISOR ─────────────────────────────────────────────
+function calcSpeedAdvisor(){
+  const perm=parseInt(document.getElementById('sa-perm').value);
+  const wz=parseInt(document.getElementById('sa-wz').value);
+  const res=document.getElementById('sa-result');
+  if(!perm||!wz)return;
+  if(wz>=perm){res.innerHTML='<div class="alert al-w"><span class="alert-icon">⚠️</span><div>Work zone speed must be lower than permanent speed.</div></div>';return;}
+  const steps=[];let cur=perm;
+  while(cur>wz+20){cur-=20;steps.push(cur);}
+  steps.push(wz);
+  res.innerHTML=`
+    <div class="alert al-i" style="margin-bottom:12px;"><span class="alert-icon">ℹ️</span><div>Maximum 20 km/h reduction per step. Each transition zone minimum 200m apart.</div></div>
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:12px;">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:8px 14px;font-family:var(--font);font-size:18px;font-weight:800;">${perm}</div>
+      ${steps.map(s=>`<div style="color:var(--grey);font-size:12px;">→ 200m →</div><div style="background:${s===wz?'var(--blue)':'var(--surface)'};border:1px solid ${s===wz?'var(--blue-hi)':'var(--border)'};border-radius:4px;padding:8px 14px;font-family:var(--font);font-size:18px;font-weight:800;color:${s===wz?'var(--white)':'var(--white)'};">${s}</div>`).join('')}
+    </div>
+    <div style="font-size:11px;color:var(--grey);line-height:1.5;">Required: <strong>${steps.length}</strong> speed reduction sign(s). Workers within 1.2m of live traffic mandate <strong>40 km/h</strong>.</div>`;
+}
+
+// ── PTT ───────────────────────────────────────────────────────
+function setPTTch(el){
+  document.querySelectorAll('.ptt-ch').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+}
+function startPTT(){
+  const b=document.getElementById('ptt-btn');
+  const s=document.getElementById('ptt-status');
+  b.classList.add('tx');b.textContent='🔴';
+  if(s){s.textContent='TRANSMITTING...';s.style.color='var(--red)';}
+}
+function stopPTT(){
+  const b=document.getElementById('ptt-btn');
+  const s=document.getElementById('ptt-status');
+  b.classList.remove('tx');b.textContent='📡';
+  if(s){s.textContent='MESSAGE SENT ✓';s.style.color='var(--green)';}
+  setTimeout(()=>{if(s){s.textContent='HOLD TO TRANSMIT';s.style.color='var(--grey)';}},1500);
+}
+
+// ── NEAR MISS ─────────────────────────────────────────────────
+function selNMcat(el){document.querySelectorAll('.nm-cat').forEach(c=>c.classList.remove('sel'));el.classList.add('sel');}
+function selNMsev(el){document.querySelectorAll('.nm-sev').forEach(s=>s.classList.remove('sel'));el.classList.add('sel');}
+function selNManon(el){document.getElementById('anon-btn').className='nm-sev sel';document.getElementById('named-btn').className='nm-sev';}
+function selNMnamed(el){document.getElementById('named-btn').className='nm-sev sel';document.getElementById('anon-btn').className='nm-sev';}
+function submitNM(){
+  closeModal('nm-modal');
+  toast('✅ Near miss report submitted — thank you for keeping the crew safe');
+}
+function closeNM(){closeModal('nm-modal');}
+
+// ── FATIGUE TIMER ─────────────────────────────────────────────
+const fatStart=Date.now();const BREAK_INT=2*60*60*1000;
+function toggleFat(){
+  const p=document.getElementById('fat-panel');
+  p.style.display=p.style.display==='none'||!p.style.display?'block':'none';
+}
+function updateFat(){
+  const elapsed=Date.now()-fatStart;
+  const h=Math.floor(elapsed/3600000);
+  const m=Math.floor((elapsed%3600000)/60000);
+  const s=Math.floor((elapsed%60000)/1000);
+  const str=String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');
+  document.getElementById('fat-compact').textContent=str;
+  document.getElementById('ft-time').textContent=str+':'+String(s).padStart(2,'0');
+  const pct=(elapsed%BREAK_INT)/BREAK_INT*100;
+  const fill=document.getElementById('ft-fill');
+  if(fill){fill.style.width=pct+'%';fill.style.background=pct>85?'var(--red)':pct>65?'var(--amber)':'var(--green)';}
+  const rem=BREAK_INT-elapsed%BREAK_INT;
+  const rm=Math.floor(rem/60000);const rs=Math.floor((rem%60000)/1000);
+  document.getElementById('ft-next').textContent=pct>99?'Break overdue!':'Break in '+String(rm).padStart(2,'0')+':'+String(rs).padStart(2,'0');
+  document.getElementById('break-alert').style.display=pct>99?'block':'none';
+}
+setInterval(updateFat,1000);updateFat();
+function logBreak(){document.getElementById('break-alert').style.display='none';toast('Break logged ✓');}
+
+// ── AI ADVISOR ────────────────────────────────────────────────
+let aiOpen=false;
+function toggleAI(){
+  aiOpen=!aiOpen;
+  document.getElementById('ai-chat-box').style.display=aiOpen?'block':'none';
+}
+const aiContext=`You are the AI Site Advisor for ClearWay TTM Platform, a NSW traffic management tool. You know: TCAWS 6.1 (NSW Traffic Control at Work Sites), AS 1742.3:2019 (road works signing), PWZTMP/ITCP qualifications, TGS codes (A1-50, A2-50, B1-60, B2-70, C3-100 etc), ROL requirements, device types (cones, delineators, advance signs, portable signals, TMA, VMS). Products: PORTABOOM PB4000 (~70kg, $5,995-$10,495, NSP exclusive), MINIBOOM TZ30 (sub-20kg, $65-125/wk subscription, launching Oct 2026). Be concise, practical, site-focused. Use Australian English.`;
+async function sendAI(){
+  const input=document.getElementById('ai-input');
+  const msgs=document.getElementById('ai-msgs');
+  const text=input.value.trim();if(!text)return;
+  input.value='';
+  msgs.innerHTML+=`<div class="ai-msg user">${text}</div>`;
+  msgs.innerHTML+=`<div class="ai-msg typing" id="ai-typing">Thinking...</div>`;
+  msgs.scrollTop=msgs.scrollHeight;
+  try{
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:300,system:aiContext,messages:[{role:'user',content:text}]})
+    });
+    const data=await resp.json();
+    const reply=data.content?.[0]?.text||'Sorry, I couldn\'t get a response right now.';
+    document.getElementById('ai-typing').remove();
+    msgs.innerHTML+=`<div class="ai-msg bot">${reply}</div>`;
+  }catch(e){
+    document.getElementById('ai-typing').remove();
+    msgs.innerHTML+=`<div class="ai-msg bot">I'm offline right now — check your connection. For urgent queries, refer to your TCAWS manual or call your supervisor.</div>`;
+  }
+  msgs.scrollTop=msgs.scrollHeight;
+}
+
+// ── MISC ──────────────────────────────────────────────────────
+function showIncForm(){document.getElementById('inc-form').style.display='block';}
+function triggerPhoto(){toast('Photo capture — connect to device camera');}
+
+// ── OFFLINE DETECTION ─────────────────────────────────────────
+function checkOnline(){
+  const b=document.getElementById('offline-banner');
+  if(b)b.style.display=navigator.onLine?'none':'block';
+}
+window.addEventListener('online',checkOnline);
+window.addEventListener('offline',checkOnline);
+checkOnline();
+
+// ── KEYBOARD SHORTCUTS ────────────────────────────────────────
+document.addEventListener('keydown',e=>{
+  if(e.altKey){
+    const map={'1':'dashboard','2':'plan','3':'briefing','4':'implement','5':'monitor','6':'tgs','7':'device','8':'safety'};
+    if(map[e.key]){nav(map[e.key]);e.preventDefault();}
+    if(e.key==='t'){openModal('taper-modal');}
+    if(e.key==='s'){openModal('speed-modal');}
+    if(e.key==='r'){openModal('nm-modal');}
+  }
+});
+
+// ── INIT ──────────────────────────────────────────────────────
+buildChecklists();
+buildPackUp();
+initBriefing();
+initAdvisor();
+renderTGS(tgsLib);
+document.getElementById('tmp-date').valueAsDate=new Date();
+
+// Welcome toast
+setTimeout(()=>{toast('🚦 ClearWay v3.0 — Weather live · Alt+T Taper · Alt+R Report');},1200);
+</script>
+</body>
+</html>
