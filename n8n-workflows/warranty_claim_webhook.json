@@ -1,0 +1,100 @@
+{
+  "name": "Warranty Claim Webhook",
+  "nodes": [
+    {
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 300],
+      "parameters": {
+        "path": "warranty-claim",
+        "httpMethod": "POST",
+        "responseMode": "lastNode"
+      },
+      "notes": "POST {serial_number, issue_description, ticket_zoho_id?}. Lodges a warranty claim."
+    },
+    {
+      "name": "Find Registration",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, serial_number, product_code, status, warranty_end FROM warranty_registrations WHERE serial_number = $1 LIMIT 1;"
+      }
+    },
+    {
+      "name": "Check Warranty Valid",
+      "type": "n8n-nodes-base.if",
+      "position": [750, 300],
+      "parameters": {
+        "conditions": {
+          "string": [{ "value1": "={{$json.status}}", "operation": "regex", "value2": "^(active|expiring_soon)$" }]
+        }
+      },
+      "notes": "Only active or expiring_soon warranties can have claims lodged."
+    },
+    {
+      "name": "Create Claim",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1000, 200],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO warranty_claims (registration_id, ticket_zoho_id, issue_description) VALUES ($1, $2, $3) RETURNING id;"
+      }
+    },
+    {
+      "name": "Update Registration Status",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1000, 400],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE warranty_registrations SET status = 'claimed' WHERE id = $1;"
+      }
+    },
+    {
+      "name": "Log Event",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1250, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO event_log (event_type, entity_type, source, metadata) VALUES ('WarrantyClaimLodged', 'warranty_claim', 'warranty_engine', jsonb_build_object('serial_number', $1, 'claim_id', $2));"
+      }
+    },
+    {
+      "name": "Reject Expired",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [1000, 500],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"status\": \"rejected\", \"reason\": \"Warranty expired or not found\", \"warranty_end\": \"{{$json.warranty_end}}\" }",
+        "options": { "responseCode": 422 }
+      }
+    },
+    {
+      "name": "Respond OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [1500, 300],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"status\": \"claim_lodged\", \"claim_id\": \"{{$json.id}}\" }"
+      }
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": { "main": [[{ "node": "Find Registration", "type": "main", "index": 0 }]] },
+    "Find Registration": { "main": [[{ "node": "Check Warranty Valid", "type": "main", "index": 0 }]] },
+    "Check Warranty Valid": {
+      "main": [
+        [{ "node": "Create Claim", "type": "main", "index": 0 }, { "node": "Update Registration Status", "type": "main", "index": 0 }],
+        [{ "node": "Reject Expired", "type": "main", "index": 0 }]
+      ]
+    },
+    "Create Claim": { "main": [[{ "node": "Log Event", "type": "main", "index": 0 }]] },
+    "Log Event": { "main": [[{ "node": "Respond OK", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionTimeout": 15 },
+  "meta": {
+    "phase": 2,
+    "owner": "Sam",
+    "description": "POST /webhook/warranty-claim — Lodges a warranty claim against a serial number. Validates warranty is active/expiring_soon. Rejects expired warranties with 422. Links to Zoho Desk ticket if provided."
+  }
+}

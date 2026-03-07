@@ -1,0 +1,67 @@
+{
+  "name": "Warranty Registration Webhook",
+  "nodes": [
+    {
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 300],
+      "parameters": {
+        "path": "warranty-register",
+        "httpMethod": "POST",
+        "responseMode": "lastNode"
+      },
+      "notes": "POST {serial_number, product_code, variant?, account_zoho_id?, contact_zoho_id?, purchase_date, warranty_type?}. Registers a new unit warranty."
+    },
+    {
+      "name": "Calculate Warranty End",
+      "type": "n8n-nodes-base.set",
+      "position": [500, 300],
+      "parameters": {
+        "values": {
+          "string": [
+            { "name": "warranty_end", "value": "={{DateTime.fromISO($json.body.purchase_date).plus({months: $json.body.warranty_type === 'extended' ? 24 : 12}).toISODate()}}" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Insert Registration",
+      "type": "n8n-nodes-base.postgres",
+      "position": [750, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO warranty_registrations (serial_number, product_code, variant, account_zoho_id, contact_zoho_id, purchase_date, warranty_start, warranty_end, warranty_type, invoice_zoho_id) VALUES ($1, $2, $3, $4, $5, $6::date, $6::date, $7::date, COALESCE($8, 'standard'), $9) RETURNING id, serial_number, warranty_start, warranty_end;"
+      }
+    },
+    {
+      "name": "Log Event",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1000, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO event_log (event_type, entity_type, source, metadata) VALUES ('WarrantyRegistered', 'warranty', 'warranty_engine', jsonb_build_object('serial_number', $1, 'product_code', $2, 'warranty_end', $3));"
+      }
+    },
+    {
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [1250, 300],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"status\": \"registered\", \"id\": \"{{$json.id}}\", \"serial_number\": \"{{$json.serial_number}}\", \"warranty_end\": \"{{$json.warranty_end}}\" }"
+      }
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": { "main": [[{ "node": "Calculate Warranty End", "type": "main", "index": 0 }]] },
+    "Calculate Warranty End": { "main": [[{ "node": "Insert Registration", "type": "main", "index": 0 }]] },
+    "Insert Registration": { "main": [[{ "node": "Log Event", "type": "main", "index": 0 }]] },
+    "Log Event": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionTimeout": 15 },
+  "meta": {
+    "phase": 2,
+    "owner": "Sam",
+    "description": "POST /webhook/warranty-register — Registers a new PB4000/MINIBOOM warranty. Calculates warranty_end based on type (12 months standard, 24 months extended). Logs to event_log."
+  }
+}

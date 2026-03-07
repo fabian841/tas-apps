@@ -24,3 +24,14 @@ All notable changes to LIFE OS are documented here.
 - n8n webhooks: /gate-review, /gate-action, /midday-checkin, /evening-review, /register-stats.
 - Weekly reflection email: Sunday 6 PM with gate summary, confirmation rate, backlog.
 - Documentation: confidence gating, touchpoints, register schemas.
+
+## Phase 2 — Company OS / GPX (March 2026)
+
+- Database: zoho_contacts, zoho_accounts, zoho_deals, zoho_tickets, zoho_invoices, product_doctrine, warranty_registrations, warranty_claims, zoho_sync_log tables (migration 06).
+- Zoho sync workflow: CRM (contacts, accounts, deals), Desk (tickets), Books (invoices) synced every 4 hours.
+- PB4000 doctrine: codified product knowledge for all PORTABOOM variants (basic, TASTrack, TMA, event, rapid) and MINIBOOM TZ30. Seeded in DB + JSON schema.
+- Warranty engine: registration, claims, daily expiry checks (30-day warning), email alerts.
+- Warranty webhooks: POST /warranty-register, POST /warranty-claim.
+- Daily Flash: company intelligence surface in Glance — pipeline, revenue MTD, overdue invoices, support tickets, warranty status, deals closing this week.
+- Hard isolation boundary enforced: Daily Flash queries Company tables only.
+- Documentation: PB4000 doctrine, warranty engine, updated data ownership matrix.

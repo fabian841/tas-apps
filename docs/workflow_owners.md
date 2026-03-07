@@ -15,6 +15,11 @@ All workflows are owned by Sam until formally transitioned.
 | Evening Review Webhook | Sam | On demand (Glance) | Phase 1 |
 | Weekly Reflection | Sam | Sunday 6 PM (cron) | Phase 1 |
 | Register Stats Webhook | Sam | On demand (Glance) | Phase 1 |
+| Zoho Sync | Sam | Every 4 hours (cron) | Phase 2 |
+| Warranty Engine | Sam | Daily 7 AM (cron) | Phase 2 |
+| Warranty Register Webhook | Sam | On demand (API) | Phase 2 |
+| Warranty Claim Webhook | Sam | On demand (API) | Phase 2 |
+| Daily Flash Webhook | Sam | On demand (Glance) | Phase 2 |
 
 ## Sam's Monitoring Responsibilities
 

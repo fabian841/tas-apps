@@ -1,8 +1,7 @@
-# LIFE OS — Dashboard (Phase 1: 4 Daily Touchpoints)
-# Touchpoint 1: Morning Pulse (6:30am) — read-only, no decisions
-# Touchpoint 2: Midday Check-in (12:30pm) — commitments & extraction status
-# Touchpoint 3: Evening Review (6:00pm) — confirm/reject PROPOSED items
-# Touchpoint 4: Weekly Reflection — Sunday email (automated, not in Glance)
+# LIFE OS — Dashboard (Phase 2: Personal + Company)
+# Personal: Morning Pulse, Midday Check-in, Evening Review (+ Weekly Reflection email)
+# Company: Daily Flash (TAS business intelligence)
+# Hard boundary: Daily Flash queries Company tables only. No Personal data.
 
 pages:
   # ── Touchpoint 1: Morning Pulse ───────────────────
@@ -122,3 +121,67 @@ pages:
           {{ range .JSON }}
           <div>{{ .register_name }}: {{ .confirmed }} confirmed, {{ .pending }} pending, {{ .rejected }} rejected</div>
           {{ end }}
+
+  # ── Daily Flash (Company OS) ─────────────────────
+  - name: Daily Flash
+    columns: 2
+    components:
+      - type: custom-api
+        title: "Sales Pipeline"
+        url: "http://n8n:5678/webhook/daily-flash"
+        cache: 30m
+        template: |
+          {{ range .JSON.pipeline }}
+          <div>{{ .stage }}: {{ .deal_count }} deals (${{ .total_value }})</div>
+          {{ end }}
+
+      - type: custom-api
+        title: "Revenue MTD"
+        url: "http://n8n:5678/webhook/daily-flash"
+        cache: 30m
+        template: |
+          <div>Invoices paid: {{ .JSON.revenue.invoices_paid }}</div>
+          <div>Revenue: ${{ .JSON.revenue.revenue }}</div>
+
+      - type: custom-api
+        title: "Overdue Invoices"
+        url: "http://n8n:5678/webhook/daily-flash"
+        cache: 30m
+        template: |
+          <div>Count: {{ .JSON.overdue.count }}</div>
+          <div>Total overdue: ${{ .JSON.overdue.total_overdue }}</div>
+
+      - type: custom-api
+        title: "Support Tickets"
+        url: "http://n8n:5678/webhook/daily-flash"
+        cache: 30m
+        template: |
+          {{ range .JSON.tickets }}
+          <div>{{ .priority }}: {{ .count }} open</div>
+          {{ end }}
+
+      - type: custom-api
+        title: "Warranty Status"
+        url: "http://n8n:5678/webhook/daily-flash"
+        cache: 1h
+        template: |
+          <div>Active: {{ .JSON.warranty.active }}</div>
+          <div>Expiring (30d): {{ .JSON.warranty.expiring }}</div>
+          <div>Open claims: {{ .JSON.warranty.open_claims }}</div>
+
+      - type: custom-api
+        title: "Deals Closing This Week"
+        url: "http://n8n:5678/webhook/daily-flash"
+        cache: 30m
+        template: |
+          {{ range .JSON.closing_this_week }}
+          <div>{{ .closing_date }}: {{ .deal_name }} (${{ .amount }}) — {{ .stage }}</div>
+          {{ end }}
+
+      - type: custom-api
+        title: "Zoho Sync"
+        url: "http://n8n:5678/webhook/daily-flash"
+        cache: 15m
+        template: |
+          <div>Last sync: {{ .JSON.sync.completed_at }}</div>
+          <div>Status: {{ .JSON.sync.status }} ({{ .JSON.sync.records_synced }} records)</div>

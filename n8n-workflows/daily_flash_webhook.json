@@ -1,0 +1,95 @@
+{
+  "name": "Daily Flash Webhook (Company Dashboard)",
+  "nodes": [
+    {
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 300],
+      "parameters": {
+        "path": "daily-flash",
+        "httpMethod": "GET",
+        "responseMode": "lastNode"
+      }
+    },
+    {
+      "name": "Pipeline Summary",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 100],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT stage, COUNT(*) AS deal_count, COALESCE(SUM(amount), 0) AS total_value FROM zoho_deals WHERE stage NOT IN ('Closed Won', 'Closed Lost') GROUP BY stage ORDER BY CASE stage WHEN 'Qualification' THEN 1 WHEN 'Proposal' THEN 2 WHEN 'Negotiation' THEN 3 END;"
+      }
+    },
+    {
+      "name": "Revenue This Month",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 250],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT COUNT(*) AS invoices_paid, COALESCE(SUM(total), 0) AS revenue FROM zoho_invoices WHERE status = 'Paid' AND paid_date >= DATE_TRUNC('month', CURRENT_DATE);"
+      }
+    },
+    {
+      "name": "Overdue Invoices",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 400],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT COUNT(*) AS count, COALESCE(SUM(balance_due), 0) AS total_overdue FROM zoho_invoices WHERE status = 'Overdue';"
+      }
+    },
+    {
+      "name": "Open Tickets",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 550],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT priority, COUNT(*) AS count FROM zoho_tickets WHERE status NOT IN ('Closed') GROUP BY priority ORDER BY CASE priority WHEN 'Urgent' THEN 1 WHEN 'High' THEN 2 WHEN 'Medium' THEN 3 WHEN 'Low' THEN 4 END;"
+      }
+    },
+    {
+      "name": "Warranty Alerts",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 700],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT COUNT(*) FILTER (WHERE status = 'expiring_soon') AS expiring, COUNT(*) FILTER (WHERE status = 'active') AS active, (SELECT COUNT(*) FROM warranty_claims WHERE status IN ('open', 'investigating')) AS open_claims FROM warranty_registrations;"
+      }
+    },
+    {
+      "name": "Deals Closing This Week",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 850],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT deal_name, stage, amount, closing_date, owner_name FROM zoho_deals WHERE closing_date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days' AND stage NOT IN ('Closed Won', 'Closed Lost') ORDER BY closing_date ASC LIMIT 10;"
+      }
+    },
+    {
+      "name": "Zoho Sync Status",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 1000],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT entity_type, status, completed_at, records_synced FROM zoho_sync_log ORDER BY started_at DESC LIMIT 1;"
+      }
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": { "main": [[
+      { "node": "Pipeline Summary", "type": "main", "index": 0 },
+      { "node": "Revenue This Month", "type": "main", "index": 0 },
+      { "node": "Overdue Invoices", "type": "main", "index": 0 },
+      { "node": "Open Tickets", "type": "main", "index": 0 },
+      { "node": "Warranty Alerts", "type": "main", "index": 0 },
+      { "node": "Deals Closing This Week", "type": "main", "index": 0 },
+      { "node": "Zoho Sync Status", "type": "main", "index": 0 }
+    ]] }
+  },
+  "settings": { "executionTimeout": 15 },
+  "meta": {
+    "phase": 2,
+    "owner": "Sam",
+    "description": "GET /webhook/daily-flash — Company intelligence surface. Returns pipeline summary, revenue MTD, overdue invoices, open tickets, warranty alerts, deals closing this week, and Zoho sync status. Used by the Daily Flash Glance page."
+  }
+}

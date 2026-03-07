@@ -1,0 +1,220 @@
+{
+  "name": "Zoho CRM/Desk/Books Sync",
+  "nodes": [
+    {
+      "name": "Cron Trigger",
+      "type": "n8n-nodes-base.cron",
+      "position": [250, 300],
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            { "mode": "custom", "cronExpression": "0 */4 * * *" }
+          ]
+        }
+      },
+      "notes": "Runs every 4 hours. Syncs Zoho CRM, Desk, and Books data to local canonical tables."
+    },
+    {
+      "name": "Create Sync Log",
+      "type": "n8n-nodes-base.postgres",
+      "position": [450, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO zoho_sync_log (entity_type, direction, status) VALUES ('all', 'zoho_to_local', 'running') RETURNING id;"
+      }
+    },
+    {
+      "name": "Sync Contacts",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [700, 100],
+      "parameters": {
+        "method": "GET",
+        "url": "https://www.zohoapis.com.au/crm/v6/Contacts",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameter": [
+            { "name": "Authorization", "value": "Zoho-oauthtoken {{$env.ZOHO_ACCESS_TOKEN}}" }
+          ]
+        },
+        "queryParameters": {
+          "parameter": [
+            { "name": "modified_since", "value": "={{$now.minus(4, 'hours').toISO()}}" },
+            { "name": "per_page", "value": "200" }
+          ]
+        }
+      },
+      "notes": "Fetches contacts modified in the last 4 hours. Zoho AU API endpoint."
+    },
+    {
+      "name": "Upsert Contacts",
+      "type": "n8n-nodes-base.postgres",
+      "position": [950, 100],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO zoho_contacts (zoho_id, first_name, last_name, email, phone, company, account_zoho_id, lead_source, owner_name, created_in_zoho, modified_in_zoho, synced_at, raw_data) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), $12::jsonb) ON CONFLICT (zoho_id) DO UPDATE SET first_name = EXCLUDED.first_name, last_name = EXCLUDED.last_name, email = EXCLUDED.email, phone = EXCLUDED.phone, company = EXCLUDED.company, modified_in_zoho = EXCLUDED.modified_in_zoho, synced_at = NOW(), raw_data = EXCLUDED.raw_data;"
+      }
+    },
+    {
+      "name": "Sync Accounts",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [700, 250],
+      "parameters": {
+        "method": "GET",
+        "url": "https://www.zohoapis.com.au/crm/v6/Accounts",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendHeaders": true,
+        "queryParameters": {
+          "parameter": [
+            { "name": "modified_since", "value": "={{$now.minus(4, 'hours').toISO()}}" },
+            { "name": "per_page", "value": "200" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Upsert Accounts",
+      "type": "n8n-nodes-base.postgres",
+      "position": [950, 250],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO zoho_accounts (zoho_id, account_name, industry, account_type, billing_state, website, owner_name, annual_revenue, created_in_zoho, modified_in_zoho, synced_at, raw_data) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), $11::jsonb) ON CONFLICT (zoho_id) DO UPDATE SET account_name = EXCLUDED.account_name, industry = EXCLUDED.industry, account_type = EXCLUDED.account_type, annual_revenue = EXCLUDED.annual_revenue, modified_in_zoho = EXCLUDED.modified_in_zoho, synced_at = NOW(), raw_data = EXCLUDED.raw_data;"
+      }
+    },
+    {
+      "name": "Sync Deals",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [700, 400],
+      "parameters": {
+        "method": "GET",
+        "url": "https://www.zohoapis.com.au/crm/v6/Deals",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendHeaders": true,
+        "queryParameters": {
+          "parameter": [
+            { "name": "modified_since", "value": "={{$now.minus(4, 'hours').toISO()}}" },
+            { "name": "per_page", "value": "200" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Upsert Deals",
+      "type": "n8n-nodes-base.postgres",
+      "position": [950, 400],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO zoho_deals (zoho_id, deal_name, stage, amount, closing_date, account_zoho_id, contact_zoho_id, owner_name, probability, pipeline, created_in_zoho, modified_in_zoho, synced_at, raw_data) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), $13::jsonb) ON CONFLICT (zoho_id) DO UPDATE SET deal_name = EXCLUDED.deal_name, stage = EXCLUDED.stage, amount = EXCLUDED.amount, closing_date = EXCLUDED.closing_date, probability = EXCLUDED.probability, modified_in_zoho = EXCLUDED.modified_in_zoho, synced_at = NOW(), raw_data = EXCLUDED.raw_data;"
+      }
+    },
+    {
+      "name": "Sync Tickets",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [700, 550],
+      "parameters": {
+        "method": "GET",
+        "url": "https://desk.zoho.com.au/api/v1/tickets",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendHeaders": true,
+        "queryParameters": {
+          "parameter": [
+            { "name": "modifiedTimeRange", "value": "={{$now.minus(4, 'hours').toISO()}},{{$now.toISO()}}" },
+            { "name": "limit", "value": "100" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Upsert Tickets",
+      "type": "n8n-nodes-base.postgres",
+      "position": [950, 550],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO zoho_tickets (zoho_id, ticket_number, subject, status, priority, channel, contact_zoho_id, account_zoho_id, assigned_to, product_name, category, due_date, created_in_zoho, synced_at, raw_data) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), $14::jsonb) ON CONFLICT (zoho_id) DO UPDATE SET subject = EXCLUDED.subject, status = EXCLUDED.status, priority = EXCLUDED.priority, assigned_to = EXCLUDED.assigned_to, category = EXCLUDED.category, synced_at = NOW(), raw_data = EXCLUDED.raw_data;"
+      }
+    },
+    {
+      "name": "Sync Invoices",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [700, 700],
+      "parameters": {
+        "method": "GET",
+        "url": "https://books.zoho.com.au/api/v3/invoices",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendHeaders": true,
+        "queryParameters": {
+          "parameter": [
+            { "name": "last_modified_time", "value": "={{$now.minus(4, 'hours').format('yyyy-MM-dd')}}" },
+            { "name": "per_page", "value": "200" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Upsert Invoices",
+      "type": "n8n-nodes-base.postgres",
+      "position": [950, 700],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO zoho_invoices (zoho_id, invoice_number, customer_name, account_zoho_id, status, total, balance_due, invoice_date, due_date, line_items, created_in_zoho, modified_in_zoho, synced_at, raw_data) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11, $12, NOW(), $13::jsonb) ON CONFLICT (zoho_id) DO UPDATE SET status = EXCLUDED.status, balance_due = EXCLUDED.balance_due, modified_in_zoho = EXCLUDED.modified_in_zoho, synced_at = NOW(), raw_data = EXCLUDED.raw_data;"
+      }
+    },
+    {
+      "name": "Complete Sync Log",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1200, 400],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE zoho_sync_log SET status = 'completed', completed_at = NOW(), records_synced = $1 WHERE id = $2;"
+      }
+    },
+    {
+      "name": "Log Event",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1400, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO event_log (event_type, entity_type, source, metadata) VALUES ('ZohoSyncCompleted', 'system', 'zoho_sync', jsonb_build_object('records_synced', $1));"
+      }
+    },
+    {
+      "name": "Update Health Check",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1400, 500],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO health_checks (component, last_run, status, message) VALUES ('zoho_sync', NOW(), 'ok', $1) ON CONFLICT (component) DO UPDATE SET last_run = EXCLUDED.last_run, status = EXCLUDED.status, message = EXCLUDED.message;"
+      }
+    }
+  ],
+  "connections": {
+    "Cron Trigger": { "main": [[{ "node": "Create Sync Log", "type": "main", "index": 0 }]] },
+    "Create Sync Log": { "main": [[{ "node": "Sync Contacts", "type": "main", "index": 0 }, { "node": "Sync Accounts", "type": "main", "index": 0 }, { "node": "Sync Deals", "type": "main", "index": 0 }, { "node": "Sync Tickets", "type": "main", "index": 0 }, { "node": "Sync Invoices", "type": "main", "index": 0 }]] },
+    "Sync Contacts": { "main": [[{ "node": "Upsert Contacts", "type": "main", "index": 0 }]] },
+    "Sync Accounts": { "main": [[{ "node": "Upsert Accounts", "type": "main", "index": 0 }]] },
+    "Sync Deals": { "main": [[{ "node": "Upsert Deals", "type": "main", "index": 0 }]] },
+    "Sync Tickets": { "main": [[{ "node": "Upsert Tickets", "type": "main", "index": 0 }]] },
+    "Sync Invoices": { "main": [[{ "node": "Upsert Invoices", "type": "main", "index": 0 }]] },
+    "Upsert Contacts": { "main": [[{ "node": "Complete Sync Log", "type": "main", "index": 0 }]] },
+    "Upsert Accounts": { "main": [[{ "node": "Complete Sync Log", "type": "main", "index": 0 }]] },
+    "Upsert Deals": { "main": [[{ "node": "Complete Sync Log", "type": "main", "index": 0 }]] },
+    "Upsert Tickets": { "main": [[{ "node": "Complete Sync Log", "type": "main", "index": 0 }]] },
+    "Upsert Invoices": { "main": [[{ "node": "Complete Sync Log", "type": "main", "index": 0 }]] },
+    "Complete Sync Log": { "main": [[{ "node": "Log Event", "type": "main", "index": 0 }, { "node": "Update Health Check", "type": "main", "index": 0 }]] }
+  },
+  "settings": {
+    "executionTimeout": 300,
+    "maxTries": 2,
+    "waitBetweenTries": 30000
+  },
+  "meta": {
+    "phase": 2,
+    "owner": "Sam",
+    "description": "Syncs Zoho CRM (contacts, accounts, deals), Desk (tickets), and Books (invoices) to local canonical tables every 4 hours. Zoho AU API endpoints. Incremental sync — only fetches records modified since last run."
+  }
+}

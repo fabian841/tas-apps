@@ -1,0 +1,156 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PB4000 Product Doctrine — v1.0",
+  "description": "Codified product knowledge for the PORTABOOM™ PB4000 portable boom barrier and variants. This is the authoritative reference for all PB4000 deployment, compliance, and warranty decisions within LIFE OS.",
+  "products": {
+    "PB4000": {
+      "name": "PORTABOOM™ PB4000",
+      "tagline": "The flagship portable boom barrier for road works and facility access",
+      "units_deployed": 1500,
+      "distributor": "NSP Distribution",
+      "variants": {
+        "basic": {
+          "description": "Standard PB4000 for urban and arterial road works",
+          "specs": {
+            "weight_kg": 70,
+            "arm_span_m": 6,
+            "speed_rating_kmh": 110,
+            "price_range_aud": "5,995–10,495",
+            "operation": ["TC-controlled", "Remote"]
+          },
+          "compliance": {
+            "nsw_tcaws": "Required where posted speed >45 km/h and traffic must be stopped. Portable boom barrier — not stop/slow bat.",
+            "certifications": ["AS/NZS 3845.2"],
+            "requires_traffic_controller": true
+          },
+          "deployment": {
+            "use_when": [
+              "Urban road works ≤50 km/h with lane closure",
+              "Arterial works 60–70 km/h",
+              "Any site where posted speed >45 km/h and traffic must be stopped"
+            ],
+            "do_not_use_when": [
+              "Shoulder-only works with no lane closure (cones sufficient)",
+              "Highway ≥80 km/h WITHOUT a Truck Mounted Attenuator (use PB4000-TMA variant)"
+            ],
+            "deploy_time_minutes": 5,
+            "operators_required": "1–2"
+          }
+        },
+        "tastrack": {
+          "description": "PB4000 with TASTrack IoT fleet management, digital pre-start, and remote monitoring",
+          "includes_base": "basic",
+          "additional_specs": {
+            "platform": "TASTrack IoT",
+            "monitoring": "Real-time GPS + status",
+            "pre_start": "Digital compliance checklist",
+            "data_capabilities": "Vehicle counting, usage hours, location history"
+          },
+          "deployment": {
+            "use_when": [
+              "Long-term projects (>2 weeks)",
+              "Fleet of 3+ units",
+              "Client requires usage data or compliance reporting"
+            ],
+            "requires": "TASTrack subscription (separate from hardware)"
+          }
+        },
+        "tma": {
+          "description": "PB4000 paired with Truck Mounted Attenuator for high-speed highway works",
+          "includes_base": "basic",
+          "additional_specs": {
+            "speed_zone_kmh": "≥70",
+            "tma_mandatory": true,
+            "pwztmp_required": true,
+            "rol_required": "Likely required for state roads"
+          },
+          "deployment": {
+            "use_when": ["Highway works at speeds ≥70 km/h"],
+            "requires": [
+              "Truck Mounted Attenuator",
+              "PWZTMP-qualified Traffic Controller on site",
+              "Road Occupancy Licence (if TfNSW road)"
+            ]
+          }
+        },
+        "event": {
+          "description": "Event and crowd management configuration with rapid deployment kit",
+          "includes_base": "basic",
+          "additional_specs": {
+            "deploy_time_minutes": 5,
+            "operation": ["Manual", "Remote"],
+            "power": ["Battery", "240V mains"],
+            "fleet_discount": true
+          },
+          "deployment": {
+            "use_when": [
+              "Major events and festivals",
+              "Vehicle exclusion zones",
+              "VIP access control",
+              "Emergency access points"
+            ]
+          }
+        },
+        "rapid": {
+          "description": "Emergency deployment — pre-rigged, operator-briefed, ready for rapid road closure",
+          "includes_base": "basic",
+          "additional_specs": {
+            "deploy_time_minutes": 3,
+            "pre_rigged": true,
+            "tastrack_optional": true
+          },
+          "deployment": {
+            "use_when": [
+              "Emergency services response",
+              "Incident response road closures",
+              "Critical infrastructure protection"
+            ],
+            "pre_positioned": true,
+            "operators_required": "1–2"
+          }
+        }
+      }
+    },
+    "MINIBOOM-TZ30": {
+      "name": "MINIBOOM TZ30",
+      "tagline": "Sub-20kg smart boom barrier with integrated traffic light. One-person deploy.",
+      "program": "TZ30",
+      "launch_date": "2026-10-01",
+      "specs": {
+        "weight_kg": 20,
+        "hardware_cost_aud": 4000,
+        "subscription_weekly_aud": "65–125",
+        "traffic_light_integrated": true,
+        "one_person_deploy": true
+      },
+      "deployment": {
+        "use_when": [
+          "Facilities requiring one-person deployment",
+          "Lower speed zones where full PB4000 is overkill",
+          "Sites without machinery for setup"
+        ]
+      }
+    }
+  },
+  "warranty": {
+    "standard_duration_months": 12,
+    "extended_available": true,
+    "covers": [
+      "Normal operational wear within spec",
+      "Manufacturing defects",
+      "Electrical/mechanical component failure"
+    ],
+    "excludes": [
+      "Damage from vehicle impact",
+      "Misuse outside deployment rules",
+      "Modifications without TAS approval",
+      "Cosmetic damage"
+    ],
+    "claim_process": "Lodge via Zoho Desk ticket, category 'Warranty'. TAS reviews within 5 business days."
+  },
+  "compliance_references": {
+    "nsw_tcaws": "Traffic Control at Work Sites (NSW) — AS 1742.3",
+    "boom_barrier_rule": "Posted speed >45 km/h requires portable boom barrier (not stop/slow bat) when traffic must be stopped",
+    "as_nzs_3845_2": "Road safety barrier systems — Portable barriers"
+  }
+}

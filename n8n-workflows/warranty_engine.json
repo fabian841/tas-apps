@@ -1,0 +1,114 @@
+{
+  "name": "Warranty Engine",
+  "nodes": [
+    {
+      "name": "Daily Warranty Check",
+      "type": "n8n-nodes-base.cron",
+      "position": [250, 300],
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            { "mode": "custom", "cronExpression": "0 7 * * *" }
+          ]
+        }
+      },
+      "notes": "Runs daily at 7 AM AEDT. Checks for expiring warranties and updates statuses."
+    },
+    {
+      "name": "Mark Expiring Soon",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 200],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE warranty_registrations SET status = 'expiring_soon' WHERE status = 'active' AND warranty_end BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '30 days' RETURNING id, serial_number, product_code, account_zoho_id, warranty_end;"
+      },
+      "notes": "Warranties expiring within 30 days are flagged."
+    },
+    {
+      "name": "Mark Expired",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 400],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE warranty_registrations SET status = 'expired' WHERE status IN ('active', 'expiring_soon') AND warranty_end < CURRENT_DATE RETURNING id, serial_number, product_code, account_zoho_id, warranty_end;"
+      }
+    },
+    {
+      "name": "Fetch Expiring Details",
+      "type": "n8n-nodes-base.postgres",
+      "position": [750, 200],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT w.serial_number, w.product_code, w.variant, w.warranty_end, a.account_name, c.first_name || ' ' || c.last_name AS contact_name, c.email FROM warranty_registrations w LEFT JOIN zoho_accounts a ON a.zoho_id = w.account_zoho_id LEFT JOIN zoho_contacts c ON c.zoho_id = w.contact_zoho_id WHERE w.status = 'expiring_soon' ORDER BY w.warranty_end ASC;"
+      }
+    },
+    {
+      "name": "Check If Expiring Exist",
+      "type": "n8n-nodes-base.if",
+      "position": [1000, 200],
+      "parameters": {
+        "conditions": {
+          "number": [{ "value1": "={{$json.length}}", "operation": "largerThan", "value2": 0 }]
+        }
+      }
+    },
+    {
+      "name": "Send Warranty Alert Email",
+      "type": "n8n-nodes-base.gmail",
+      "position": [1250, 100],
+      "parameters": {
+        "sendTo": "fabian@fdnxt.com",
+        "subject": "Warranty Alert — {{$json.length}} units expiring within 30 days",
+        "message": "Warranty Expiry Alert\n\nThe following units have warranties expiring within 30 days:\n\n{{$json.details}}\n\nAction required:\n- Contact customer about extended warranty\n- Update Zoho Desk if follow-up needed\n- Check for any open claims before expiry",
+        "options": {}
+      }
+    },
+    {
+      "name": "Fetch Open Claims Summary",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 600],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT wc.id, wc.status, wc.issue_description, wc.claim_date, wr.serial_number, wr.product_code FROM warranty_claims wc JOIN warranty_registrations wr ON wr.id = wc.registration_id WHERE wc.status IN ('open', 'investigating') ORDER BY wc.claim_date ASC;"
+      }
+    },
+    {
+      "name": "Log Event",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1250, 400],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO event_log (event_type, entity_type, source, metadata) VALUES ('WarrantyCheckCompleted', 'system', 'warranty_engine', jsonb_build_object('expiring_soon', $1, 'newly_expired', $2, 'open_claims', $3));"
+      }
+    },
+    {
+      "name": "Update Health Check",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1250, 600],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO health_checks (component, last_run, status, message) VALUES ('warranty_engine', NOW(), 'ok', $1) ON CONFLICT (component) DO UPDATE SET last_run = EXCLUDED.last_run, status = EXCLUDED.status, message = EXCLUDED.message;"
+      }
+    }
+  ],
+  "connections": {
+    "Daily Warranty Check": { "main": [[{ "node": "Mark Expiring Soon", "type": "main", "index": 0 }, { "node": "Mark Expired", "type": "main", "index": 0 }, { "node": "Fetch Open Claims Summary", "type": "main", "index": 0 }]] },
+    "Mark Expiring Soon": { "main": [[{ "node": "Fetch Expiring Details", "type": "main", "index": 0 }]] },
+    "Fetch Expiring Details": { "main": [[{ "node": "Check If Expiring Exist", "type": "main", "index": 0 }]] },
+    "Check If Expiring Exist": { "main": [[{ "node": "Send Warranty Alert Email", "type": "main", "index": 0 }]] },
+    "Send Warranty Alert Email": { "main": [[{ "node": "Log Event", "type": "main", "index": 0 }]] },
+    "Mark Expired": { "main": [[{ "node": "Log Event", "type": "main", "index": 0 }]] },
+    "Fetch Open Claims Summary": { "main": [[{ "node": "Log Event", "type": "main", "index": 0 }]] },
+    "Log Event": { "main": [[{ "node": "Update Health Check", "type": "main", "index": 0 }]] }
+  },
+  "settings": {
+    "executionTimeout": 60,
+    "maxTries": 2,
+    "waitBetweenTries": 10000
+  },
+  "meta": {
+    "phase": 2,
+    "owner": "Sam",
+    "description": "Daily warranty lifecycle management. Marks warranties as expiring_soon (30-day window) or expired. Sends email alerts for expiring units. Tracks open claims. Runs at 7 AM daily."
+  }
+}
