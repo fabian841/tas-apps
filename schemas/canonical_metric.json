@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "canonical_metric",
+  "description": "Business metric or KPI value for a given period",
+  "type": "object",
+  "properties": {
+    "id": { "type": "string", "format": "uuid" },
+    "metric_name": { "type": "string" },
+    "value": { "type": "number" },
+    "unit": { "type": "string" },
+    "period_start": { "type": "string", "format": "date" },
+    "period_end": { "type": "string", "format": "date" },
+    "source": { "type": "string" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "metadata": { "type": "object" }
+  },
+  "required": ["metric_name", "value"]
+}

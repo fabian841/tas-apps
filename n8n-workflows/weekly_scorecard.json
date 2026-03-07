@@ -1,0 +1,12 @@
+{
+  "name": "Weekly Scorecard",
+  "description": "Phase 0 – Generates a weekly business scorecard. Trigger: cron every Monday at 8 AM. Fetches total deals and pipeline from Zoho API, cash balance from Xero API, inserts metrics into canonical_metric, posts to Glance webhook, and logs to workflow_logs.",
+  "nodes": [],
+  "connections": {},
+  "active": false,
+  "settings": {
+    "executionTimeout": 300,
+    "maxRetries": 3
+  },
+  "notes": "Placeholder – build this workflow in the n8n UI and export the JSON here. See Phase 0 Build Manual section 6.3 for details."
+}

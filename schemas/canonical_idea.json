@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "canonical_idea",
+  "description": "Business idea tracked through the ideation pipeline",
+  "type": "object",
+  "properties": {
+    "id": { "type": "string", "format": "uuid" },
+    "title": { "type": "string" },
+    "description": { "type": "string" },
+    "category": { "type": "string", "enum": ["software", "hardware", "service", "other", "unknown"] },
+    "status": { "type": "string", "enum": ["new", "researched", "mvp_ready", "product_created", "archived"] },
+    "feasibility_score": { "type": "integer", "minimum": 1, "maximum": 10 },
+    "feasibility_summary": { "type": "string" },
+    "market_size": { "type": "string" },
+    "competitor_count": { "type": "integer" },
+    "recommended_category": { "type": "string" },
+    "mvp_link": { "type": "string", "format": "uri" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "metadata": { "type": "object" }
+  },
+  "required": ["title"]
+}

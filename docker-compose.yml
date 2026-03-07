@@ -1,0 +1,60 @@
+version: '3.8'
+
+networks:
+  fabian-net:
+    driver: bridge
+
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.2-pg17
+    container_name: fabian-postgres
+    environment:
+      POSTGRES_DB: fabian_os
+      POSTGRES_USER: fabian_admin   # superuser for migrations
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - ./postgres/data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d
+    ports:
+      - "127.0.0.1:5432:5432"   # bound to localhost only
+    restart: unless-stopped
+    networks:
+      - fabian-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fabian_admin -d fabian_os"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  n8n:
+    image: n8nio/n8n:2.9.0
+    container_name: fabian-n8n
+    environment:
+      - N8N_HOST=localhost
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=fabian_os
+      - DB_POSTGRESDB_USER=fabian_app
+      - DB_POSTGRESDB_PASSWORD=${APP_DB_PASSWORD}
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+      - N8N_USER_FOLDER=/home/node/.n8n
+      - WEBHOOK_URL=http://localhost:5678/
+    volumes:
+      - ./n8n/data:/home/node/.n8n
+      - ./scripts:/scripts
+    ports:
+      - "127.0.0.1:5678:5678"
+    restart: unless-stopped
+    networks:
+      - fabian-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "http://localhost:5678/healthz/readiness"]
+      interval: 30s
+      timeout: 10s
+      retries: 5

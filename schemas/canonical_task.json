@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "canonical_task",
+  "description": "Normalised task record from any project management source",
+  "type": "object",
+  "properties": {
+    "id": { "type": "string", "format": "uuid" },
+    "source_system": { "type": "string" },
+    "external_id": { "type": "string" },
+    "title": { "type": "string" },
+    "description": { "type": "string" },
+    "assignee": { "type": "string" },
+    "status": { "type": "string" },
+    "priority": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+    "due_date": { "type": "string", "format": "date" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "metadata": { "type": "object" }
+  },
+  "required": ["source_system", "external_id", "title"]
+}

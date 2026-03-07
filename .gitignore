@@ -1,0 +1,45 @@
+# Environment and secrets
+.env
+*.env
+secrets/
+gmail_credentials.json
+drive_credentials.json
+*_token.json
+*_token_cache.json
+
+# Python
+*.pyc
+__pycache__/
+*.pyo
+.venv/
+venv/
+env/
+
+# Node
+node_modules/
+
+# PostgreSQL data
+postgres/data/
+
+# n8n data
+n8n/data/
+
+# Downloaded files
+drive_files/
+
+# Logs
+logs/
+*.log
+
+# Backups (stored separately)
+backups/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo

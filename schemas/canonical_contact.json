@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "canonical_contact",
+  "description": "Normalised contact record from any source",
+  "type": "object",
+  "properties": {
+    "id": { "type": "string", "format": "uuid" },
+    "source_system": { "type": "string" },
+    "external_id": { "type": "string" },
+    "first_name": { "type": "string" },
+    "last_name": { "type": "string" },
+    "email": { "type": "string", "format": "email" },
+    "phone": { "type": "string" },
+    "company": { "type": "string" },
+    "role": { "type": "string" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "metadata": { "type": "object" }
+  },
+  "required": ["source_system", "external_id"]
+}

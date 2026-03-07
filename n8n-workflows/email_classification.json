@@ -1,0 +1,12 @@
+{
+  "name": "Email Classification",
+  "description": "Phase 0 – Classifies unclassified raw emails using Claude API. Trigger: scheduled (hourly) or webhook. Queries raw_emails where classification IS NULL, calls Claude to classify (client, supplier, internal), updates the record, and logs to workflow_logs.",
+  "nodes": [],
+  "connections": {},
+  "active": false,
+  "settings": {
+    "executionTimeout": 300,
+    "maxRetries": 3
+  },
+  "notes": "Placeholder – build this workflow in the n8n UI and export the JSON here. See Phase 0 Build Manual section 6.2 for details."
+}
