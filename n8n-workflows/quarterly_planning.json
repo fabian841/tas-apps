@@ -1,0 +1,65 @@
+{
+  "name": "Quarterly Planning Trigger",
+  "nodes": [
+    {
+      "name": "Cron — Quarter Start",
+      "type": "n8n-nodes-base.cron",
+      "position": [250, 300],
+      "parameters": {
+        "triggerTimes": {
+          "item": [{ "mode": "custom", "cronExpression": "0 8 1 1,4,7,10 *" }]
+        }
+      },
+      "notes": "First day of each quarter at 8 AM. Creates a new quarter record and triggers the planning workflow."
+    },
+    {
+      "name": "Create Quarter Record",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO canonical_quarter (year, quarter, name, start_date, end_date, status, rocks) VALUES (EXTRACT(YEAR FROM CURRENT_DATE)::int, EXTRACT(QUARTER FROM CURRENT_DATE)::int, CONCAT('Q', EXTRACT(QUARTER FROM CURRENT_DATE)::int, ' ', EXTRACT(YEAR FROM CURRENT_DATE)::int), DATE_TRUNC('quarter', CURRENT_DATE)::date, (DATE_TRUNC('quarter', CURRENT_DATE) + INTERVAL '3 months' - INTERVAL '1 day')::date, 'planning', '[]'::jsonb) ON CONFLICT (year, quarter) DO NOTHING RETURNING id, name;"
+      }
+    },
+    {
+      "name": "Send Planning Email",
+      "type": "n8n-nodes-base.emailSend",
+      "position": [750, 200],
+      "parameters": {
+        "fromEmail": "noreply@trafficaccess.com.au",
+        "toEmail": "fabian@fdnxt.com",
+        "subject": "Quarterly Planning: {{$json.name}} — Review Rocks",
+        "text": "A new quarter has started: {{$json.name}}.\n\nPlease review and update your quarterly rocks.\n\nThis is a Rockefeller Habits trigger from your TAS Operating System."
+      }
+    },
+    {
+      "name": "Log Event",
+      "type": "n8n-nodes-base.postgres",
+      "position": [750, 400],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO event_log (event_type, entity_type, source, metadata) VALUES ('QuarterPlanningStarted', 'quarter', 'n8n', jsonb_build_object('quarter_id', $1, 'name', $2));"
+      }
+    },
+    {
+      "name": "Update Health",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1000, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO health_checks (component, last_run, status, message) VALUES ('quarterly_planning', NOW(), 'ok', $1) ON CONFLICT (component) DO UPDATE SET last_run = EXCLUDED.last_run, status = EXCLUDED.status, message = EXCLUDED.message;"
+      }
+    }
+  ],
+  "connections": {
+    "Cron — Quarter Start": { "main": [[{ "node": "Create Quarter Record", "type": "main", "index": 0 }]] },
+    "Create Quarter Record": { "main": [[{ "node": "Send Planning Email", "type": "main", "index": 0 }, { "node": "Log Event", "type": "main", "index": 0 }]] },
+    "Send Planning Email": { "main": [[{ "node": "Update Health", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionTimeout": 60, "maxTries": 3 },
+  "meta": {
+    "phase": 1,
+    "owner": "Sam",
+    "description": "Cron first day of quarter 8 AM. Creates canonical_quarter record, emails Fabian to review rocks. From original Phase 1 Build Manual — Rockefeller Habits."
+  }
+}

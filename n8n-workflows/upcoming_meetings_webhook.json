@@ -1,0 +1,42 @@
+{
+  "name": "Upcoming Meetings Webhook",
+  "nodes": [
+    {
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 300],
+      "parameters": {
+        "path": "upcoming-meetings",
+        "httpMethod": "GET",
+        "responseMode": "lastNode"
+      }
+    },
+    {
+      "name": "Get Upcoming Meetings",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT type, scheduled_date AS date, LEFT(agenda, 120) AS agenda_short, attendees FROM canonical_meeting WHERE scheduled_date >= CURRENT_DATE AND scheduled_date <= CURRENT_DATE + INTERVAL '14 days' ORDER BY scheduled_date ASC LIMIT 10;"
+      }
+    },
+    {
+      "name": "Format Response",
+      "type": "n8n-nodes-base.code",
+      "position": [750, 300],
+      "parameters": {
+        "code": "const meetings = $input.all().map(item => ({\n  date: item.json.date,\n  type: item.json.type,\n  agenda_short: item.json.agenda_short || 'No agenda yet',\n  attendees: item.json.attendees || []\n}));\nreturn [{ json: { meetings } }];"
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Get Upcoming Meetings", "type": "main", "index": 0 }]] },
+    "Get Upcoming Meetings": { "main": [[{ "node": "Format Response", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionTimeout": 30 },
+  "meta": {
+    "phase": 1,
+    "owner": "Sam",
+    "description": "GET /webhook/upcoming-meetings — returns meetings scheduled in the next 14 days. Used by Glance Rocks & Scorecard page."
+  }
+}

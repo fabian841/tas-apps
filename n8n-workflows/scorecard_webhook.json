@@ -1,0 +1,33 @@
+{
+  "name": "Scorecard Webhook",
+  "nodes": [
+    {
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 300],
+      "parameters": {
+        "path": "scorecard",
+        "httpMethod": "GET",
+        "responseMode": "lastNode"
+      }
+    },
+    {
+      "name": "Get Latest Scorecard",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT metric_name, value, target, CASE WHEN target IS NOT NULL THEN ROUND(value - target, 2) ELSE NULL END AS variance, source FROM canonical_scorecard WHERE week = (SELECT MAX(week) FROM canonical_scorecard) ORDER BY metric_name;"
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Get Latest Scorecard", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionTimeout": 30 },
+  "meta": {
+    "phase": 1,
+    "owner": "Sam",
+    "description": "GET /webhook/scorecard — returns latest weekly scorecard metrics with targets and variance. Used by Glance Rocks & Scorecard page."
+  }
+}

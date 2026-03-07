@@ -1,0 +1,42 @@
+{
+  "name": "Agent Findings Webhook",
+  "nodes": [
+    {
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 300],
+      "parameters": {
+        "path": "agent-findings",
+        "httpMethod": "GET",
+        "responseMode": "lastNode"
+      }
+    },
+    {
+      "name": "Get Recent Findings",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT title, summary, relevance_score, created_at FROM agent_findings WHERE status = 'PROPOSED' AND finding_type = 'competitor_intel' ORDER BY relevance_score DESC, created_at DESC LIMIT 10;"
+      }
+    },
+    {
+      "name": "Format Response",
+      "type": "n8n-nodes-base.code",
+      "position": [750, 300],
+      "parameters": {
+        "code": "const findings = $input.all().map(item => ({\n  title: item.json.title,\n  summary: item.json.summary,\n  relevance_score: item.json.relevance_score,\n  created_at: item.json.created_at\n}));\nreturn [{ json: { findings } }];"
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Get Recent Findings", "type": "main", "index": 0 }]] },
+    "Get Recent Findings": { "main": [[{ "node": "Format Response", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionTimeout": 30 },
+  "meta": {
+    "phase": 2,
+    "owner": "Sam",
+    "description": "GET /webhook/agent-findings — returns recent competitor intelligence findings ranked by relevance. Used by Glance Business Snapshot page."
+  }
+}

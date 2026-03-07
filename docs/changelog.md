@@ -1,6 +1,18 @@
 # Changelog
 
-All notable changes to LIFE OS are documented here.
+All notable changes to TAS Operating System are documented here.
+
+## Architecture Reconciliation (March 2026)
+
+- Reconciled three architecture sources: STR-003.1 (original rebuild), Fabian OS Build Manuals (Phases 0-7), and TAS-001.3 (Zoho-centric foundation).
+- Decision: Zoho is source of truth for TAS operations; PostgreSQL/n8n/Glance is the intelligence layer. Both coexist. (ADR-001)
+- Added migration 02_canonical_tables.sql: universal data model (deal, contact, idea, agent_finding, metric, task, product).
+- Added migration 08_rockefeller_and_config.sql: quarters, meetings, scorecards, config tables, supplier/competitor seeds.
+- Added capture scripts: capture_gmail.py (hourly), capture_outlook.py (hourly), sync_drive.py (daily 3 AM).
+- Added 12 n8n workflows from original build manuals: email_classification, health_summary_webhook, metrics_webhook, quarterly_planning, weekly_scorecard, meeting_agenda, xero_sync, competitor_intelligence, rocks_progress_webhook, scorecard_webhook, upcoming_meetings_webhook, agent_findings_webhook.
+- Glance expanded to 7 pages: added Business Snapshot and Rocks & Scorecard.
+- README.md rewritten with integrated architecture diagram and week-based timeline from TAS-001.3.
+- .env.example updated with Xero and Perplexity credentials.
 
 ## Phase 0 — Core Foundation (March 2026)
 

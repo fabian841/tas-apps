@@ -1,0 +1,107 @@
+{
+  "name": "Competitor Intelligence Agent",
+  "nodes": [
+    {
+      "name": "Cron — Monday 6 AM",
+      "type": "n8n-nodes-base.cron",
+      "position": [250, 300],
+      "parameters": {
+        "triggerTimes": {
+          "item": [{ "mode": "custom", "cronExpression": "0 6 * * 1" }]
+        }
+      },
+      "notes": "Weekly Monday 6 AM — researches competitors BARTCO, ARROWES, DATSA."
+    },
+    {
+      "name": "Load Competitors",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT name, website, description FROM config_competitors WHERE active = true;"
+      }
+    },
+    {
+      "name": "Research via Perplexity",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [750, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.perplexity.ai/chat/completions",
+        "headers": {
+          "Authorization": "Bearer {{$env.PERPLEXITY_API_KEY}}",
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "model": "sonar-medium-online",
+          "messages": [
+            { "role": "system", "content": "You are a competitive intelligence analyst for Traffic & Access Solutions, an Australian manufacturer of portable traffic management devices (PORTABOOM PB4000). Provide recent news and strategic moves." },
+            { "role": "user", "content": "Find recent news, product launches, pricing changes, customer reviews, and strategic moves for {{$json.name}} in the portable traffic management device industry in the last 7 days. Focus on the Australian market." }
+          ]
+        }
+      },
+      "notes": "Perplexity sonar-medium-online for live web search per competitor."
+    },
+    {
+      "name": "Extract via Claude",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1000, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "headers": {
+          "x-api-key": "={{$env.CLAUDE_API_KEY}}",
+          "anthropic-version": "2023-06-01",
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "model": "claude-sonnet-4-6",
+          "max_tokens": 1024,
+          "messages": [
+            { "role": "user", "content": "Extract structured intelligence from the following research about {{$json.name}}. Return JSON with keys: title (max 10 words), summary (max 3 sentences), relevance_score (1-10, where 10 = directly threatens TAS market position), tags (array of strings). If no meaningful intelligence found, set relevance_score to 1. Research:\n\n{{$json.content}}" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Store Finding",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1250, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO canonical_agent_finding (agent_name, source, title, summary, raw_data, relevance_score, tags, metadata) VALUES ('competitor_intel', 'perplexity', $1, $2, $3, $4, $5, jsonb_build_object('competitor', $6)) RETURNING id;"
+      }
+    },
+    {
+      "name": "Log Event",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1500, 200],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO event_log (event_type, entity_type, entity_id, source, metadata) VALUES ('AgentFindingCreated', 'agent_finding', $1, 'n8n', jsonb_build_object('agent', 'competitor_intel'));"
+      }
+    },
+    {
+      "name": "Update Health",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1500, 400],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO health_checks (component, last_run, status, message) VALUES ('agent_competitor', NOW(), 'ok', $1) ON CONFLICT (component) DO UPDATE SET last_run = EXCLUDED.last_run, status = EXCLUDED.status, message = EXCLUDED.message;"
+      }
+    }
+  ],
+  "connections": {
+    "Cron — Monday 6 AM": { "main": [[{ "node": "Load Competitors", "type": "main", "index": 0 }]] },
+    "Load Competitors": { "main": [[{ "node": "Research via Perplexity", "type": "main", "index": 0 }]] },
+    "Research via Perplexity": { "main": [[{ "node": "Extract via Claude", "type": "main", "index": 0 }]] },
+    "Extract via Claude": { "main": [[{ "node": "Store Finding", "type": "main", "index": 0 }]] },
+    "Store Finding": { "main": [[{ "node": "Log Event", "type": "main", "index": 0 }, { "node": "Update Health", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionTimeout": 600, "maxTries": 3 },
+  "meta": {
+    "phase": 2,
+    "owner": "Sam",
+    "description": "Weekly competitive intelligence. Researches BARTCO, ARROWES, DATSA via Perplexity. Claude extracts structured findings. Stores in canonical_agent_finding. From original Phase 2 Build Manual + TAS-001.3 (Section 2.1 competitive intelligence)."
+  }
+}

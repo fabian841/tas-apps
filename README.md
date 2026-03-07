@@ -1,56 +1,107 @@
-# LIFE OS
+# TAS Operating System — Intelligence & Automation Layer
 
 Unified operating system for Fabian Diaz and Traffic & Access Solutions.
-Two layers — Personal and Company — share infrastructure but never share data.
+Two systems work together: **Zoho One** (source of truth for business operations) and **this repo** (intelligence, automation, and personal OS).
 
-**Spec:** STR-003.1 LIFE OS Unified Specification (supersedes PIL v2.1, GPX v1.1, BRAIN-001.x, Fabian OS Phase 0-7)
+**Architecture documents:**
+- **TAS-001.3** — TAS Operating System Foundation Architecture (Zoho-centric, Joel supervises)
+- **Fabian OS Build Manuals 0-7** — Intelligence layer architecture (PostgreSQL/n8n/Glance, Claude builds)
+- **PIL/GPX extensions** — Personal registers, confidence gating, PB4000 doctrine, warranty engine
 
-## Architecture
+## Integrated Architecture
 
-- **pgvector** (0.8.2-pg17) — Vector database for semantic memory across all registers
-- **n8n** (2.9.0) — Workflow orchestration — all automation pipelines
-- **Glance** (v0.7.4) — Morning Pulse dashboard — personal intelligence surface
-- **Mac mini** (24/7) — Always-on host at `/opt/fabian-os/`
+```
+┌─────────────────────────────────────────────────────────┐
+│  ZOHO ONE (Source of Truth — TAS-001.3)                 │
+│  CRM · Desk · Inventory · Books · Projects · Flow       │
+│  Joel supervises · Claude reads/writes via Zoho MCP     │
+└────────────────────────┬────────────────────────────────┘
+                         │ Zoho Sync (every 4h) + MCP (real-time)
+┌────────────────────────▼────────────────────────────────┐
+│  THIS REPO — Intelligence & Automation Layer            │
+│                                                         │
+│  pgvector (0.8.2-pg17)    n8n (2.9.0)    Glance (v0.7.4)│
+│  ┌──────────┐  ┌──────────┐  ┌─────────────────────┐   │
+│  │ Canonical │  │ Workflows│  │ Dashboards          │   │
+│  │ Tables    │  │ 20+      │  │ Morning Pulse       │   │
+│  │ PIL Regs  │  │ Agents   │  │ Midday · Evening    │   │
+│  │ Agent     │  │ Sync     │  │ Daily Flash · Agent  │   │
+│  │ Findings  │  │ Xero     │  │ Rocks · Financial    │   │
+│  └──────────┘  └──────────┘  └─────────────────────┘   │
+│                                                         │
+│  Claude Code Agents (Personal + Company, hard-isolated) │
+│  MCP Servers: Zoho CRM/Desk/Books, Postgres, Sheets    │
+│  Mac mini (24/7) at /opt/fabian-os/                     │
+└─────────────────────────────────────────────────────────┘
+                         │
+┌────────────────────────▼────────────────────────────────┐
+│  EXTERNAL INTEGRATIONS                                  │
+│  Xero (statutory accounting) · Gmail · M365 · PLAUD    │
+│  Google Drive · Google Sheets · Perplexity              │
+└─────────────────────────────────────────────────────────┘
+```
 
 ## Repository Structure
 
 ```
 ├── docker-compose.yml          # pgvector + n8n + Glance stack
-├── migrations/                 # SQL migration files (run on first start)
-├── n8n-workflows/              # Exported n8n workflow definitions
-├── glance/                     # Dashboard configuration (5 pages)
-├── scripts/                    # Backup and utility scripts
-├── schemas/                    # PIL register + PB4000 doctrine schemas
+├── migrations/                 # SQL migration files (run in order)
+│   ├── 01_raw_tables.sql       # Raw ingestion (emails, drive, transcripts)
+│   ├── 02_canonical_tables.sql # Universal data model (deal, contact, idea, metric, task, product)
+│   ├── 03_event_log.sql        # Append-only audit trail
+│   ├── 04_health.sql           # Health checks + credential expiry
+│   ├── 05_registers_and_gating.sql  # PIL registers + confidence gate
+│   ├── 06_company_os.sql       # Zoho mirror tables + PB4000 doctrine + warranty
+│   ├── 07_agent_framework.sql  # MCP registry + agent sessions + findings
+│   └── 08_rockefeller_and_config.sql  # Quarters, meetings, scorecards, config tables
+├── n8n-workflows/              # 20+ exported n8n workflow definitions
+├── glance/                     # Dashboard configuration (7 pages)
+├── scripts/
+│   ├── backup.sh               # Daily DB backup + Healthchecks.io ping
+│   ├── capture_gmail.py        # Gmail incremental sync to raw_emails
+│   ├── capture_outlook.py      # M365 Graph API polling to raw_emails
+│   ├── sync_drive.py           # Google Drive metadata + download sync
+│   └── requirements.txt        # Python dependencies for capture scripts
+├── schemas/
+│   ├── pil_registers.json      # 8 PIL register definitions
+│   └── pb4000_doctrine.json    # PB4000 product family specs
 ├── agents/
 │   ├── personal/               # Personal agent (CLAUDE.md + .mcp.json)
 │   └── company/                # Company agent (CLAUDE.md + .mcp.json)
 ├── mcp-servers/
-│   ├── zoho-crm/               # Zoho CRM MCP server
-│   ├── zoho-desk/              # Zoho Desk MCP server
-│   └── zoho-books/             # Zoho Books MCP server
+│   ├── zoho-crm/               # Zoho CRM MCP server (contacts, accounts, deals)
+│   ├── zoho-desk/              # Zoho Desk MCP server (tickets)
+│   └── zoho-books/             # Zoho Books MCP server (invoices)
 ├── docs/
-│   ├── email_triage_sop.md     # Phase 0 email triage procedure
-│   ├── drive_structure.md      # Google Drive 12-folder structure
-│   ├── restore_procedure.md    # Disaster recovery procedure
-│   ├── workflow_owners.md      # Workflow ownership registry
+│   ├── adr/                    # Architecture Decision Records
+│   ├── agent_architecture.md   # Claude Code agent design
 │   ├── changelog.md            # All changes logged here
-│   ├── agent_architecture.md   # Phase 3 agent design
-│   └── adr/                    # Architecture Decision Records
+│   ├── confidence_gating.md    # PIL confidence gate lifecycle
+│   ├── data_ownership.md       # Data ownership matrix
+│   ├── drive_structure.md      # Google Drive 12-folder structure
+│   ├── email_triage_sop.md     # Email triage procedure
+│   ├── pb4000_doctrine.md      # PB4000 product reference
+│   ├── restore_procedure.md    # Disaster recovery procedure
+│   ├── touchpoints.md          # 4 daily touchpoints
+│   ├── warranty_engine.md      # Warranty lifecycle
+│   └── workflow_owners.md      # Workflow ownership registry
 └── .env.example                # Environment variables template
 ```
 
-## Phases
+## Build Timeline (Week-Based, from TAS-001.3)
 
-| Phase | Name | Stability Gate | What It Delivers |
-|-------|------|---------------|-----------------|
-| **0** | Core Foundation | 14 days | PLAUD pipeline, Morning Pulse, email triage habit, Drive structure |
-| **1** | Personal OS Live | 14 days | 8 registers, confidence gating, 4 daily touchpoints, PLAUD extraction |
-| **2** | Company OS (GPX) | 14 days | Zoho config, PB4000 doctrine, warranty engine, Daily Flash |
-| **3** | Automation & Agents | 30 days | Claude Code agents (personal + company), Zoho MCP servers |
-| **4** | Governance | 28 days | Compliance agent, DR drills, change control |
-| **5** | Advanced Intelligence | 30 days (optional) | MemCP, claude-brain, Ghost |
-| **6** | Agent Swarm | 30 days/agent | Regulatory, tech scout, supplier risk, etc. |
-| **7** | Team Scaling | 14 days | Multi-user access, role-based dashboards |
+| Week | Deliverable | Zoho (Joel supervises) | This Repo (Claude builds) |
+|------|-------------|----------------------|--------------------------|
+| **1** | MCP Live + CRM | Zoho MCP connected. CRM Blueprint configured. M365 email connected. | Docker stack up. Raw tables + canonical tables. Capture scripts running. |
+| **2** | Desk + Forms | Desk case management live. Pre-start inspection form. | PIL registers + confidence gating. PLAUD extraction pipeline. Email classification. |
+| **3** | Inventory + Books | Inventory connected. Books-Xero sync. | Zoho sync workflow. Xero sync. Weekly scorecard. PB4000 doctrine. |
+| **4** | Phase 1 Complete | All critical modules live. Phase 1 review. | Warranty engine. Daily Flash. 4 touchpoints in Glance. Rockefeller Habits. |
+| **5-6** | Flow + Sign | Zoho Flow automations. Sign deployed. | Claude Code agents + MCP servers. Agent Monitor in Glance. |
+| **7-8** | PLAUD + Cliq | PLAUD pipeline end-to-end. Cliq configured. | Competitor intelligence agent. n8n PLAUD processing. |
+| **9** | Phase 2 Review | All Phase 2 modules live. | All agent workflows stable. |
+| **10-14** | Campaigns + Analytics + Subscriptions | TZ30 subscription billing. Analytics dashboards. | Governance: compliance agent, DR drills, data retention. |
+| **15-18** | People + Commerce + AI Assistant | HR, online store, customer AI (Claude API). | Agent swarm: regulatory, tech scout, supplier risk. |
+| **Post Oct** | Phase 5 | TZ30 launched. System stable. | MemCP, claude-brain, Ghost (optional). Team scaling. |
 
 ## Governing Principles
 
@@ -62,11 +113,25 @@ Two layers — Personal and Company — share infrastructure but never share dat
 6. Learning only counts if it changes behaviour
 7. Personal and Company data are a hard boundary
 8. The system observes and surfaces — never prescribes
+9. Zoho is the source of truth for all TAS operations
+10. No build without approved design — one build, done right
 
-## Quick Start (Phase 0)
+## Working Model (from TAS-001.3)
+
+| Role | Person | Responsibility |
+|------|--------|---------------|
+| **Director** | Fabian Diaz | Strategy, approvals, sign-off. Reviews all designs before build. |
+| **Incoming COO** | Tynan Diaz (June 2026) | Operations oversight, team management, process compliance. |
+| **Project Supervisor** | Joel | Supervises Zoho config, project management, sandbox testing. |
+| **Code Builder** | Claude | Writes all code in this repo. Designs processes. QAs via MCP. Generates intelligence briefs. |
+| **Developer** | Sam Marciano | TASTrack IoT platform, Zoho Creator mobile apps. |
+
+## Quick Start
 
 1. Copy `.env.example` to `/opt/fabian-os/.env`, fill in credentials, `chmod 600 .env`
 2. `docker-compose up -d` — starts pgvector, n8n, and Glance
-3. Fix PLAUD > Zapier > n8n pipeline (Sam's first task)
-4. Begin 14-day email triage habit (manual, no automation)
-5. Check Morning Pulse dashboard every morning at 6:30am
+3. Run migrations in order: `psql -U fabian_admin -d fabian_os -f migrations/01_raw_tables.sql` (repeat for each)
+4. `pip install -r scripts/requirements.txt` — install capture script dependencies
+5. Set up cron jobs for capture scripts (see script headers for schedule)
+6. Import n8n workflows from `n8n-workflows/` directory
+7. Check Morning Pulse dashboard at `http://localhost:8080`

@@ -1,11 +1,12 @@
-# LIFE OS — Dashboard (Phase 3: Personal + Company + Agents)
-# Personal: Morning Pulse, Midday Check-in, Evening Review (+ Weekly Reflection email)
-# Company: Daily Flash (TAS business intelligence)
-# Agents: Agent Monitor (session history, findings, MCP health)
+# TAS Operating System — Glance Dashboard
+# 7 pages: Morning Pulse, Business Snapshot, Midday Check-in, Evening Review,
+#           Daily Flash, Rocks & Scorecard, Agent Monitor
+# Architecture: Zoho is source of truth (TAS-001.3). This dashboard reads from
+# PostgreSQL (synced from Zoho) and n8n webhooks.
 # Hard boundary: Daily Flash queries Company tables only. No Personal data.
 
 pages:
-  # ── Touchpoint 1: Morning Pulse ───────────────────
+  # ── Touchpoint 1: Morning Pulse (Personal + Overview) ──
   - name: Morning Pulse
     columns: 2
     components:
@@ -57,7 +58,48 @@ pages:
         expected: 200
         cache: 1m
 
-  # ── Touchpoint 2: Midday Check-in ────────────────
+  # ── Business Snapshot (from Phase 0 Build Manual) ──────
+  - name: Business Snapshot
+    columns: 2
+    components:
+      - type: custom-api
+        title: "System Health"
+        url: "http://n8n:5678/webhook/health-summary"
+        cache: 5m
+        template: |
+          {{ range .JSON.checks }}
+          <div>{{ .component }}: <span style="color: {{ if eq .status "ok" }}green{{ else if eq .status "warning" }}orange{{ else }}red{{ end }}">{{ .status }}</span> {{ .message }}</div>
+          {{ end }}
+
+      - type: custom-api
+        title: "Financial Snapshot"
+        url: "http://n8n:5678/webhook/metrics"
+        cache: 1h
+        template: |
+          <div>Cash: ${{ .JSON.cash }}</div>
+          <div>Pipeline: ${{ .JSON.pipeline_total }} ({{ .JSON.deals_count }} deals)</div>
+          <div>Receivables: ${{ .JSON.receivables }}</div>
+          <div>Payables: ${{ .JSON.payables }}</div>
+
+      - type: custom-api
+        title: "Competitor Intelligence"
+        url: "http://n8n:5678/webhook/agent-findings"
+        cache: 6h
+        template: |
+          {{ range .JSON.findings }}
+          <div style="margin-bottom:8px; padding:4px; border-left:3px solid #ccc;">
+            <strong>{{ .title }}</strong> (relevance: {{ .relevance_score }}/10)<br/>
+            <small>{{ .summary }}</small><br/>
+            <span style="font-size:0.8em;">{{ .created_at }}</span>
+          </div>
+          {{ end }}
+
+      - type: http
+        title: "Healthchecks.io (Backup)"
+        url: "https://hc-ping.com/${HC_BACKUP_UUID}/last"
+        expected: 200
+
+  # ── Touchpoint 2: Midday Check-in ─────────────────────
   - name: Midday Check-in
     columns: 2
     components:
@@ -87,7 +129,7 @@ pages:
           <div>TAS inbox: {{ .JSON.tas_unread }} unread</div>
           <div>Personal inbox: {{ .JSON.personal_unread }} unread</div>
 
-  # ── Touchpoint 3: Evening Review ─────────────────
+  # ── Touchpoint 3: Evening Review ───────────────────────
   - name: Evening Review
     columns: 2
     components:
@@ -123,7 +165,7 @@ pages:
           <div>{{ .register_name }}: {{ .confirmed }} confirmed, {{ .pending }} pending, {{ .rejected }} rejected</div>
           {{ end }}
 
-  # ── Daily Flash (Company OS) ─────────────────────
+  # ── Daily Flash (Company OS — Zoho data only) ─────────
   - name: Daily Flash
     columns: 2
     components:
@@ -187,7 +229,49 @@ pages:
           <div>Last sync: {{ .JSON.sync.completed_at }}</div>
           <div>Status: {{ .JSON.sync.status }} ({{ .JSON.sync.records_synced }} records)</div>
 
-  # ── Agent Monitor ──────────────────────────────────
+  # ── Rocks & Scorecard (Rockefeller Habits) ─────────────
+  - name: Rocks & Scorecard
+    columns: 2
+    components:
+      - type: custom-api
+        title: "Quarter Rocks Progress"
+        url: "http://n8n:5678/webhook/rocks-progress"
+        cache: 1h
+        template: |
+          <div>{{ .JSON.quarter }}: {{ .JSON.completed }} / {{ .JSON.total }} rocks completed</div>
+          {{ range .JSON.rocks }}
+          <div>{{ .name }}: {{ .progress }}% ({{ .owner }})</div>
+          {{ end }}
+
+      - type: custom-api
+        title: "Weekly Scorecard"
+        url: "http://n8n:5678/webhook/scorecard"
+        cache: 1h
+        template: |
+          {{ range .JSON }}
+          <div>{{ .metric_name }}: {{ .value }} {{ if .target }}(target: {{ .target }}, {{ if gt .variance 0 }}+{{ end }}{{ .variance }}){{ end }}</div>
+          {{ end }}
+
+      - type: custom-api
+        title: "Financial Snapshot"
+        url: "http://n8n:5678/webhook/metrics"
+        cache: 1h
+        template: |
+          <div>Cash: ${{ .JSON.cash }}</div>
+          <div>Pipeline: ${{ .JSON.pipeline_total }}</div>
+          <div>Receivables: ${{ .JSON.receivables }}</div>
+          <div>Payables: ${{ .JSON.payables }}</div>
+
+      - type: custom-api
+        title: "Upcoming Meetings"
+        url: "http://n8n:5678/webhook/upcoming-meetings"
+        cache: 6h
+        template: |
+          {{ range .JSON.meetings }}
+          <div>{{ .date }}: {{ .type }} – {{ .agenda_short }}</div>
+          {{ end }}
+
+  # ── Agent Monitor ──────────────────────────────────────
   - name: Agent Monitor
     columns: 2
     components:

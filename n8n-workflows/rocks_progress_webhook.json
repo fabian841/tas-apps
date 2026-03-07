@@ -1,0 +1,42 @@
+{
+  "name": "Rocks Progress Webhook",
+  "nodes": [
+    {
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 300],
+      "parameters": {
+        "path": "rocks-progress",
+        "httpMethod": "GET",
+        "responseMode": "lastNode"
+      }
+    },
+    {
+      "name": "Get Active Quarter",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT name, year, quarter, rocks, status FROM canonical_quarter WHERE status = 'active' ORDER BY year DESC, quarter DESC LIMIT 1;"
+      }
+    },
+    {
+      "name": "Format Response",
+      "type": "n8n-nodes-base.code",
+      "position": [750, 300],
+      "parameters": {
+        "code": "const row = $input.first().json;\nconst rocks = row.rocks || [];\nconst completed = rocks.filter(r => r.progress >= 100).length;\nconst total = rocks.length;\nconst formatted = rocks.map(r => ({\n  name: r.name || 'Unnamed',\n  progress: r.progress || 0,\n  owner: r.owner || 'Unassigned'\n}));\nreturn [{\n  json: {\n    quarter: row.name || `Q${row.quarter} ${row.year}`,\n    completed,\n    total,\n    rocks: formatted\n  }\n}];"
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Get Active Quarter", "type": "main", "index": 0 }]] },
+    "Get Active Quarter": { "main": [[{ "node": "Format Response", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionTimeout": 30 },
+  "meta": {
+    "phase": 1,
+    "owner": "Sam",
+    "description": "GET /webhook/rocks-progress — returns active quarter rocks with progress percentages. Used by Glance Rocks & Scorecard page."
+  }
+}

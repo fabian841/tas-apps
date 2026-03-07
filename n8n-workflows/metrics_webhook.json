@@ -1,0 +1,50 @@
+{
+  "name": "Metrics Webhook",
+  "nodes": [
+    {
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 300],
+      "parameters": {
+        "path": "metrics",
+        "httpMethod": "GET",
+        "responseMode": "lastNode"
+      }
+    },
+    {
+      "name": "Latest Metrics",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT DISTINCT ON (metric_name) metric_name, value, unit, source, created_at FROM canonical_metric ORDER BY metric_name, created_at DESC;"
+      }
+    },
+    {
+      "name": "Format Response",
+      "type": "n8n-nodes-base.set",
+      "position": [750, 300],
+      "parameters": {
+        "values": {
+          "string": [
+            { "name": "cash", "value": "={{$json.find(m => m.metric_name === 'cash_balance')?.value || 'N/A'}}" },
+            { "name": "deals_count", "value": "={{$json.find(m => m.metric_name === 'deals_count')?.value || 0}}" },
+            { "name": "pipeline_total", "value": "={{$json.find(m => m.metric_name === 'pipeline_total')?.value || 0}}" },
+            { "name": "receivables", "value": "={{$json.find(m => m.metric_name === 'receivables')?.value || 0}}" },
+            { "name": "payables", "value": "={{$json.find(m => m.metric_name === 'payables')?.value || 0}}" }
+          ]
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Latest Metrics", "type": "main", "index": 0 }]] },
+    "Latest Metrics": { "main": [[{ "node": "Format Response", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionTimeout": 15 },
+  "meta": {
+    "phase": 0,
+    "owner": "Sam",
+    "description": "GET /webhook/metrics — Returns latest canonical_metric values (cash, pipeline, deals, receivables, payables). Used by Glance Business Snapshot widget. From original Phase 0 Build Manual."
+  }
+}

@@ -1,0 +1,95 @@
+{
+  "name": "Meeting Agenda Generator",
+  "nodes": [
+    {
+      "name": "Cron — Friday 4 PM",
+      "type": "n8n-nodes-base.cron",
+      "position": [250, 300],
+      "parameters": {
+        "triggerTimes": {
+          "item": [{ "mode": "custom", "cronExpression": "0 16 * * 5" }]
+        }
+      },
+      "notes": "Friday 4 PM — generates agenda for Monday weekly meeting."
+    },
+    {
+      "name": "Fetch Rocks Progress",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 150],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT name, rocks FROM canonical_quarter WHERE status = 'active' ORDER BY year DESC, quarter DESC LIMIT 1;"
+      }
+    },
+    {
+      "name": "Fetch Latest Metrics",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 350],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT DISTINCT ON (metric_name) metric_name, value, source, created_at FROM canonical_metric ORDER BY metric_name, created_at DESC;"
+      }
+    },
+    {
+      "name": "Fetch Open Tasks",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 550],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT title, assignee, due_date, priority FROM canonical_task WHERE status IN ('open', 'in_progress') ORDER BY priority DESC, due_date ASC LIMIT 10;"
+      }
+    },
+    {
+      "name": "Generate Agenda",
+      "type": "n8n-nodes-base.set",
+      "position": [800, 300],
+      "parameters": {
+        "values": {
+          "string": [
+            { "name": "agenda", "value": "Weekly Meeting Agenda — {{new Date(Date.now() + 3*86400000).toLocaleDateString()}}\n\n1. ROCKS PROGRESS\n{{JSON.stringify($node['Fetch Rocks Progress'].json.rocks, null, 2)}}\n\n2. KEY METRICS\n{{JSON.stringify($node['Fetch Latest Metrics'].json, null, 2)}}\n\n3. OPEN ACTION ITEMS\n{{JSON.stringify($node['Fetch Open Tasks'].json, null, 2)}}\n\n4. ISSUES / BLOCKERS\n(To be discussed)\n\n5. DECISIONS REQUIRED\n(To be discussed)" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Create Meeting Record",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1050, 200],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO canonical_meeting (type, scheduled_date, agenda, attendees) VALUES ('weekly', (CURRENT_DATE + INTERVAL '3 days')::date, $1, ARRAY['Fabian', 'Tynan']) RETURNING id;"
+      }
+    },
+    {
+      "name": "Email Agenda",
+      "type": "n8n-nodes-base.emailSend",
+      "position": [1050, 400],
+      "parameters": {
+        "fromEmail": "noreply@trafficaccess.com.au",
+        "toEmail": "fabian@fdnxt.com",
+        "subject": "Weekly Meeting Agenda — Monday",
+        "text": "={{$json.agenda}}"
+      }
+    },
+    {
+      "name": "Update Health",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1300, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO health_checks (component, last_run, status, message) VALUES ('meeting_agenda', NOW(), 'ok', 'Agenda generated and sent') ON CONFLICT (component) DO UPDATE SET last_run = EXCLUDED.last_run, status = EXCLUDED.status, message = EXCLUDED.message;"
+      }
+    }
+  ],
+  "connections": {
+    "Cron — Friday 4 PM": { "main": [[{ "node": "Fetch Rocks Progress", "type": "main", "index": 0 }, { "node": "Fetch Latest Metrics", "type": "main", "index": 0 }, { "node": "Fetch Open Tasks", "type": "main", "index": 0 }]] },
+    "Generate Agenda": { "main": [[{ "node": "Create Meeting Record", "type": "main", "index": 0 }, { "node": "Email Agenda", "type": "main", "index": 0 }]] },
+    "Email Agenda": { "main": [[{ "node": "Update Health", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionTimeout": 120, "maxTries": 3 },
+  "meta": {
+    "phase": 1,
+    "owner": "Sam",
+    "description": "Friday 4 PM. Compiles rocks progress, metrics, and open tasks into meeting agenda. Emails to Fabian. Creates canonical_meeting record. From original Phase 1 Build Manual — Rockefeller Habits."
+  }
+}

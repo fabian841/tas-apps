@@ -1,0 +1,101 @@
+{
+  "name": "Weekly Scorecard",
+  "nodes": [
+    {
+      "name": "Cron — Monday 7 AM",
+      "type": "n8n-nodes-base.cron",
+      "position": [250, 300],
+      "parameters": {
+        "triggerTimes": {
+          "item": [{ "mode": "custom", "cronExpression": "0 7 * * 1" }]
+        }
+      },
+      "notes": "Every Monday 7 AM — generates weekly scorecard from Zoho + Xero data."
+    },
+    {
+      "name": "Fetch Zoho Pipeline",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 150],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT COUNT(*) AS deals_count, COALESCE(SUM(amount), 0) AS pipeline_total FROM zoho_deals WHERE stage NOT IN ('Closed Won', 'Closed Lost');"
+      }
+    },
+    {
+      "name": "Fetch Zoho Revenue",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 350],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT COUNT(*) AS invoices_paid, COALESCE(SUM(total), 0) AS revenue FROM zoho_invoices WHERE status = 'paid' AND invoice_date >= DATE_TRUNC('month', CURRENT_DATE);"
+      }
+    },
+    {
+      "name": "Fetch Open Cases",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 550],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT COUNT(*) AS open_cases FROM zoho_tickets WHERE status IN ('Open', 'Escalated', 'On Hold');"
+      }
+    },
+    {
+      "name": "Store Scorecard Metrics",
+      "type": "n8n-nodes-base.postgres",
+      "position": [800, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO canonical_scorecard (week, metric_name, value, target, variance, source) VALUES (DATE_TRUNC('week', CURRENT_DATE)::date, 'pipeline_total', $1, NULL, NULL, 'zoho_crm'), (DATE_TRUNC('week', CURRENT_DATE)::date, 'deals_count', $2, NULL, NULL, 'zoho_crm'), (DATE_TRUNC('week', CURRENT_DATE)::date, 'revenue_mtd', $3, NULL, NULL, 'zoho_books'), (DATE_TRUNC('week', CURRENT_DATE)::date, 'open_cases', $4, NULL, NULL, 'zoho_desk');"
+      }
+    },
+    {
+      "name": "Also Store as Canonical Metrics",
+      "type": "n8n-nodes-base.postgres",
+      "position": [800, 500],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO canonical_metric (metric_name, value, source) VALUES ('pipeline_total', $1, 'zoho_crm'), ('deals_count', $2, 'zoho_crm'), ('revenue_mtd', $3, 'zoho_books'), ('open_cases', $4, 'zoho_desk');"
+      }
+    },
+    {
+      "name": "Post to Rocks Webhook",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1050, 150],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT rocks, name FROM canonical_quarter WHERE status = 'active' ORDER BY year DESC, quarter DESC LIMIT 1;"
+      },
+      "notes": "Fetch current quarter rocks for the scorecard summary."
+    },
+    {
+      "name": "Log Event",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1050, 350],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO event_log (event_type, entity_type, source, metadata) VALUES ('WeeklyScorecardGenerated', 'scorecard', 'n8n', jsonb_build_object('week', DATE_TRUNC('week', CURRENT_DATE)::text));"
+      }
+    },
+    {
+      "name": "Update Health",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1050, 550],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO health_checks (component, last_run, status, message) VALUES ('weekly_scorecard', NOW(), 'ok', 'Scorecard generated') ON CONFLICT (component) DO UPDATE SET last_run = EXCLUDED.last_run, status = EXCLUDED.status, message = EXCLUDED.message;"
+      }
+    }
+  ],
+  "connections": {
+    "Cron — Monday 7 AM": { "main": [[{ "node": "Fetch Zoho Pipeline", "type": "main", "index": 0 }, { "node": "Fetch Zoho Revenue", "type": "main", "index": 0 }, { "node": "Fetch Open Cases", "type": "main", "index": 0 }]] },
+    "Fetch Zoho Pipeline": { "main": [[{ "node": "Store Scorecard Metrics", "type": "main", "index": 0 }]] },
+    "Store Scorecard Metrics": { "main": [[{ "node": "Also Store as Canonical Metrics", "type": "main", "index": 0 }]] },
+    "Also Store as Canonical Metrics": { "main": [[{ "node": "Post to Rocks Webhook", "type": "main", "index": 0 }, { "node": "Log Event", "type": "main", "index": 0 }, { "node": "Update Health", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionTimeout": 300, "maxTries": 3 },
+  "meta": {
+    "phase": 1,
+    "owner": "Sam",
+    "description": "Monday 7 AM. Pulls pipeline from Zoho CRM, revenue from Books, cases from Desk. Stores in canonical_scorecard and canonical_metric. From original Phase 1 Build Manual."
+  }
+}

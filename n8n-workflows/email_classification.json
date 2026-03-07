@@ -1,0 +1,89 @@
+{
+  "name": "Email Classification",
+  "nodes": [
+    {
+      "name": "Cron — Hourly",
+      "type": "n8n-nodes-base.cron",
+      "position": [250, 300],
+      "parameters": {
+        "triggerTimes": {
+          "item": [{ "mode": "custom", "cronExpression": "0 * * * *" }]
+        }
+      },
+      "notes": "Every hour — classifies unclassified emails in raw_emails."
+    },
+    {
+      "name": "Fetch Unclassified",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, sender, subject, body FROM raw_emails WHERE classification IS NULL ORDER BY received_at DESC LIMIT 20;"
+      }
+    },
+    {
+      "name": "Classify via Claude",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [750, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "headers": {
+          "x-api-key": "={{$env.CLAUDE_API_KEY}}",
+          "anthropic-version": "2023-06-01",
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "model": "claude-sonnet-4-6",
+          "max_tokens": 256,
+          "messages": [
+            {
+              "role": "user",
+              "content": "Classify this email into exactly one category: client, supplier, internal, marketing, spam, personal. Return ONLY the category word, nothing else.\n\nFrom: {{$json.sender}}\nSubject: {{$json.subject}}\nBody: {{$json.body}}"
+            }
+          ]
+        }
+      },
+      "notes": "Claude classifies each email. Categories: client, supplier, internal, marketing, spam, personal."
+    },
+    {
+      "name": "Update Classification",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1000, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE raw_emails SET classification = $1 WHERE id = $2;"
+      }
+    },
+    {
+      "name": "Log to Workflow Logs",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1250, 200],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO workflow_logs (workflow_name, status, output_summary, completed_at) VALUES ('email_classification', 'completed', $1, NOW());"
+      }
+    },
+    {
+      "name": "Update Health",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1250, 400],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO health_checks (component, last_run, status, message) VALUES ('email_classification', NOW(), 'ok', $1) ON CONFLICT (component) DO UPDATE SET last_run = EXCLUDED.last_run, status = EXCLUDED.status, message = EXCLUDED.message;"
+      }
+    }
+  ],
+  "connections": {
+    "Cron — Hourly": { "main": [[{ "node": "Fetch Unclassified", "type": "main", "index": 0 }]] },
+    "Fetch Unclassified": { "main": [[{ "node": "Classify via Claude", "type": "main", "index": 0 }]] },
+    "Classify via Claude": { "main": [[{ "node": "Update Classification", "type": "main", "index": 0 }]] },
+    "Update Classification": { "main": [[{ "node": "Log to Workflow Logs", "type": "main", "index": 0 }, { "node": "Update Health", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionTimeout": 300, "maxTries": 3 },
+  "meta": {
+    "phase": 0,
+    "owner": "Sam",
+    "description": "Hourly email classification using Claude API. Classifies raw_emails into: client, supplier, internal, marketing, spam, personal. From original Phase 0 Build Manual."
+  }
+}

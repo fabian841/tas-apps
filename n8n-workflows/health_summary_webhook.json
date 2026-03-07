@@ -1,0 +1,47 @@
+{
+  "name": "Health Summary Webhook",
+  "nodes": [
+    {
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 300],
+      "parameters": {
+        "path": "health-summary",
+        "httpMethod": "GET",
+        "responseMode": "lastNode"
+      }
+    },
+    {
+      "name": "Query Health Checks",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT component, last_run, status, message FROM health_checks ORDER BY component;"
+      }
+    },
+    {
+      "name": "Compute Overall Status",
+      "type": "n8n-nodes-base.set",
+      "position": [750, 300],
+      "parameters": {
+        "values": {
+          "string": [
+            { "name": "overall", "value": "={{$json.every(c => c.status === 'ok') ? 'ok' : $json.some(c => c.status === 'error') ? 'error' : 'warning'}}" }
+          ]
+        }
+      },
+      "notes": "Returns 200 only if all checks are ok. 503 if any are error."
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Query Health Checks", "type": "main", "index": 0 }]] },
+    "Query Health Checks": { "main": [[{ "node": "Compute Overall Status", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionTimeout": 15 },
+  "meta": {
+    "phase": 0,
+    "owner": "Sam",
+    "description": "GET /webhook/health-summary — Returns all health_checks rows with overall status. Used by Glance System Health widget. From original Phase 0 Build Manual."
+  }
+}

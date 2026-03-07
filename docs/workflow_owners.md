@@ -26,6 +26,21 @@ All workflows are owned by Sam until formally transitioned.
 | Zoho CRM MCP Server | Sam | Persistent (stdio) | Phase 3 |
 | Zoho Desk MCP Server | Sam | Persistent (stdio) | Phase 3 |
 | Zoho Books MCP Server | Sam | Persistent (stdio) | Phase 3 |
+| Email Classification | Sam | Hourly (cron) | Reconciliation |
+| Health Summary Webhook | Sam | On demand (Glance) | Reconciliation |
+| Metrics Webhook | Sam | On demand (Glance) | Reconciliation |
+| Quarterly Planning | Sam | 1st day of quarter 8 AM (cron) | Reconciliation |
+| Weekly Scorecard | Sam | Monday 7 AM (cron) | Reconciliation |
+| Meeting Agenda Generator | Sam | Friday 4 PM (cron) | Reconciliation |
+| Xero Sync | Sam | Daily 6 AM (cron) | Reconciliation |
+| Competitor Intelligence | Sam | Monday 6 AM (cron) | Reconciliation |
+| Rocks Progress Webhook | Sam | On demand (Glance) | Reconciliation |
+| Scorecard Webhook | Sam | On demand (Glance) | Reconciliation |
+| Upcoming Meetings Webhook | Sam | On demand (Glance) | Reconciliation |
+| Agent Findings Webhook | Sam | On demand (Glance) | Reconciliation |
+| Gmail Capture (script) | Sam | Hourly (cron) | Reconciliation |
+| Outlook Capture (script) | Sam | Hourly offset 30m (cron) | Reconciliation |
+| Drive Sync (script) | Sam | Daily 3 AM (cron) | Reconciliation |
 
 ## Sam's Monitoring Responsibilities
 
