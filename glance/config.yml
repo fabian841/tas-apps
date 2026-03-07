@@ -1,12 +1,14 @@
-# LIFE OS — Phase 0 Morning Pulse
-# Fabian checks this every morning at 6:30am before touching email.
-# Read-only. No register widgets until registers exist (Phase 1).
+# LIFE OS — Dashboard (Phase 1: 4 Daily Touchpoints)
+# Touchpoint 1: Morning Pulse (6:30am) — read-only, no decisions
+# Touchpoint 2: Midday Check-in (12:30pm) — commitments & extraction status
+# Touchpoint 3: Evening Review (6:00pm) — confirm/reject PROPOSED items
+# Touchpoint 4: Weekly Reflection — Sunday email (automated, not in Glance)
 
 pages:
+  # ── Touchpoint 1: Morning Pulse ───────────────────
   - name: Morning Pulse
     columns: 2
     components:
-      # ── Time & Weather ────────────────────────────────
       - type: clock
         title: "Sydney"
         timezone: "Australia/Sydney"
@@ -18,14 +20,12 @@ pages:
         units: metric
         cache: 30m
 
-      # ── Calendar ──────────────────────────────────────
       - type: calendar
         title: "Today's Agenda"
         calendars:
           - url: ${GOOGLE_CALENDAR_ICAL_URL}
             name: "Fabian"
 
-      # ── Gmail Unread ──────────────────────────────────
       - type: custom-api
         title: "Email Status"
         url: "http://n8n:5678/webhook/email-status"
@@ -34,7 +34,6 @@ pages:
           <div>TAS inbox: {{ .JSON.tas_unread }} unread</div>
           <div>Personal inbox: {{ .JSON.personal_unread }} unread</div>
 
-      # ── PLAUD Pipeline ───────────────────────────────
       - type: custom-api
         title: "PLAUD Transcripts (24h)"
         url: "http://n8n:5678/webhook/plaud-status"
@@ -43,9 +42,83 @@ pages:
           <div>Processed: {{ .JSON.count_24h }}</div>
           <div>Last: {{ .JSON.last_title }} ({{ .JSON.last_time }})</div>
 
-      # ── System Health ─────────────────────────────────
+      - type: custom-api
+        title: "Register Health"
+        url: "http://n8n:5678/webhook/register-stats"
+        cache: 1h
+        template: |
+          {{ range .JSON }}
+          <div>{{ .register_name }}: {{ .confirmed }} confirmed, {{ .pending }} pending</div>
+          {{ end }}
+
       - type: http
         title: "n8n Service"
         url: "http://n8n:5678/healthz/readiness"
         expected: 200
         cache: 1m
+
+  # ── Touchpoint 2: Midday Check-in ────────────────
+  - name: Midday Check-in
+    columns: 2
+    components:
+      - type: custom-api
+        title: "Today's Extractions"
+        url: "http://n8n:5678/webhook/midday-checkin"
+        cache: 15m
+        template: |
+          {{ range .JSON.extraction_summary }}
+          <div>{{ .register_name }}: {{ .count }} new items</div>
+          {{ end }}
+
+      - type: custom-api
+        title: "Upcoming Commitments"
+        url: "http://n8n:5678/webhook/midday-checkin"
+        cache: 15m
+        template: |
+          {{ range .JSON.commitments }}
+          <div>{{ .due_date }}: {{ .commitment }} (to {{ .made_to }})</div>
+          {{ end }}
+
+      - type: custom-api
+        title: "Email Status"
+        url: "http://n8n:5678/webhook/email-status"
+        cache: 15m
+        template: |
+          <div>TAS inbox: {{ .JSON.tas_unread }} unread</div>
+          <div>Personal inbox: {{ .JSON.personal_unread }} unread</div>
+
+  # ── Touchpoint 3: Evening Review ─────────────────
+  - name: Evening Review
+    columns: 2
+    components:
+      - type: custom-api
+        title: "Gate Stats"
+        url: "http://n8n:5678/webhook/evening-review"
+        cache: 5m
+        template: |
+          <div>Pending review: {{ .JSON.pending }}</div>
+          <div>Confirmed today: {{ .JSON.confirmed_today }}</div>
+          <div>Rejected today: {{ .JSON.rejected_today }}</div>
+          <div>Extractions today: {{ .JSON.runs }} runs, {{ .JSON.total_proposed }} items</div>
+
+      - type: custom-api
+        title: "Items to Review (HIGH confidence first)"
+        url: "http://n8n:5678/webhook/gate-review"
+        cache: 5m
+        template: |
+          {{ range .JSON.items }}
+          <div style="margin-bottom:8px">
+            <strong>[{{ .confidence_label }}]</strong> {{ .register_name }}<br/>
+            {{ .proposed_data }}<br/>
+            <small>ID: {{ .id }} | {{ .proposed_at }}</small>
+          </div>
+          {{ end }}
+
+      - type: custom-api
+        title: "Register Totals"
+        url: "http://n8n:5678/webhook/register-stats"
+        cache: 30m
+        template: |
+          {{ range .JSON }}
+          <div>{{ .register_name }}: {{ .confirmed }} confirmed, {{ .pending }} pending, {{ .rejected }} rejected</div>
+          {{ end }}

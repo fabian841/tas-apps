@@ -1,0 +1,95 @@
+{
+  "name": "Confirm/Reject Gate Item",
+  "nodes": [
+    {
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 300],
+      "parameters": {
+        "path": "gate-action",
+        "httpMethod": "POST",
+        "responseMode": "lastNode"
+      },
+      "notes": "POST {id, action: 'confirm'|'reject', reason?}. Only Fabian uses this."
+    },
+    {
+      "name": "Validate Action",
+      "type": "n8n-nodes-base.if",
+      "position": [500, 300],
+      "parameters": {
+        "conditions": {
+          "string": [
+            { "value1": "={{$json.body.action}}", "operation": "regex", "value2": "^(confirm|reject)$" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Update Gate Log",
+      "type": "n8n-nodes-base.postgres",
+      "position": [750, 200],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE confidence_gate_log SET status = CASE WHEN $1 = 'confirm' THEN 'CONFIRMED' ELSE 'REJECTED' END, reviewed_at = NOW(), reviewed_by = 'fabian', rejection_reason = $2 WHERE id = $3 AND status = 'PROPOSED' RETURNING id, register_name, status;"
+      },
+      "notes": "Only updates PROPOSED items. Cannot re-review CONFIRMED/REJECTED items."
+    },
+    {
+      "name": "Write to Google Sheet (if confirmed)",
+      "type": "n8n-nodes-base.if",
+      "position": [1000, 200],
+      "parameters": {
+        "conditions": {
+          "string": [{ "value1": "={{$json.status}}", "operation": "equals", "value2": "CONFIRMED" }]
+        }
+      },
+      "notes": "Only write to the register sheet if Fabian confirmed the item."
+    },
+    {
+      "name": "Append to Register Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "position": [1250, 100],
+      "parameters": {
+        "operation": "append",
+        "sheetId": "={{$json.sheet_id}}",
+        "range": "={{$json.register_name}}!A:Z"
+      },
+      "notes": "Appends the confirmed row to the appropriate register tab in Google Sheets."
+    },
+    {
+      "name": "Log Event",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1250, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO event_log (event_type, entity_type, source, metadata) VALUES ($1, 'gate_item', 'confidence_gate', jsonb_build_object('gate_log_id', $2, 'register', $3, 'action', $4));"
+      }
+    },
+    {
+      "name": "Respond OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [1500, 300],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"status\": \"ok\", \"action\": \"{{$json.action}}\", \"id\": \"{{$json.id}}\" }"
+      }
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": { "main": [[{ "node": "Validate Action", "type": "main", "index": 0 }]] },
+    "Validate Action": { "main": [[{ "node": "Update Gate Log", "type": "main", "index": 0 }]] },
+    "Update Gate Log": { "main": [[{ "node": "Write to Google Sheet (if confirmed)", "type": "main", "index": 0 }, { "node": "Log Event", "type": "main", "index": 0 }]] },
+    "Write to Google Sheet (if confirmed)": { "main": [[{ "node": "Append to Register Sheet", "type": "main", "index": 0 }]] },
+    "Append to Register Sheet": { "main": [[{ "node": "Respond OK", "type": "main", "index": 0 }]] },
+    "Log Event": { "main": [[{ "node": "Respond OK", "type": "main", "index": 0 }]] }
+  },
+  "settings": {
+    "executionTimeout": 30,
+    "maxTries": 1
+  },
+  "meta": {
+    "phase": 1,
+    "owner": "Sam",
+    "description": "POST /webhook/gate-action — Fabian confirms or rejects PROPOSED items. Confirmed items are written to Google Sheets. Rejected items are logged with reason. No automation may call this endpoint."
+  }
+}

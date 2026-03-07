@@ -1,0 +1,142 @@
+{
+  "name": "PLAUD Transcript Extraction (Phase 1)",
+  "nodes": [
+    {
+      "name": "Trigger on New Transcript",
+      "type": "n8n-nodes-base.postgres",
+      "position": [250, 300],
+      "typeVersion": 1,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT transcript_id, title, raw_content, duration_seconds FROM raw_transcripts WHERE processed = FALSE ORDER BY ingested_at ASC LIMIT 1;"
+      },
+      "notes": "Poll for unprocessed transcripts. In production, trigger via webhook after PLAUD pipeline stores transcript."
+    },
+    {
+      "name": "Check If Empty",
+      "type": "n8n-nodes-base.if",
+      "position": [450, 300],
+      "parameters": {
+        "conditions": {
+          "string": [{ "value1": "={{$json.transcript_id}}", "operation": "isNotEmpty" }]
+        }
+      }
+    },
+    {
+      "name": "Create Extraction Run",
+      "type": "n8n-nodes-base.postgres",
+      "position": [650, 200],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO extraction_run (transcript_id, model, prompt_version, status) VALUES ($1, 'claude-sonnet-4-6', 'v1.0', 'running') RETURNING id;"
+      }
+    },
+    {
+      "name": "Call Claude API",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [900, 200],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameter": [
+            { "name": "x-api-key", "value": "={{$env.CLAUDE_API_KEY}}" },
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameter": [
+            {
+              "name": "JSON",
+              "value": "={\"model\":\"claude-sonnet-4-6\",\"max_tokens\":4096,\"system\":\"You are a structured data extractor for the Personal Intelligence Layer (PIL). Extract items from the transcript into the following registers: decisions, commitments, ideas, learnings, relationships, health, finance. Only extract what is explicitly stated or strongly implied. Each item must have a confidence label: HIGH (direct quote/explicit), MEDIUM (reasonable inference), LOW (weak signal). Never fabricate. If nothing fits a register, return an empty array for that register. For patterns: never propose from a single event — require 3+ occurrences. Return valid JSON only.\",\"messages\":[{\"role\":\"user\",\"content\":\"Extract structured register items from this PLAUD transcript:\\n\\nTitle: {{$json.title}}\\n\\nTranscript:\\n{{$json.raw_content}}\\n\\nReturn JSON with keys: decisions, commitments, ideas, learnings, relationships, health, finance. Each value is an array of objects matching the register schema. Include confidence (HIGH/MEDIUM/LOW) on every item.\"}]}"
+            }
+          ]
+        }
+      },
+      "notes": "Claude extracts structured items from transcript into register format. Uses claude-sonnet-4-6 for cost efficiency."
+    },
+    {
+      "name": "Parse Extraction Result",
+      "type": "n8n-nodes-base.set",
+      "position": [1150, 200],
+      "parameters": {
+        "values": {
+          "string": [
+            { "name": "extracted_json", "value": "={{$json.content[0].text}}" },
+            { "name": "transcript_id", "value": "={{$node['Trigger on New Transcript'].json.transcript_id}}" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Write Gate Log Entries",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1400, 200],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- For each extracted item, insert into confidence_gate_log as PROPOSED\n-- This is a placeholder — in production, use a Function node to loop over\n-- the parsed JSON and insert one row per extracted item.\nINSERT INTO confidence_gate_log (register_name, proposed_data, confidence_score, confidence_label, status, source_transcript_id, extraction_model) VALUES ($1, $2::jsonb, $3, $4, 'PROPOSED', $5, 'claude-sonnet-4-6');"
+      },
+      "notes": "Each extracted item becomes a PROPOSED row in the gate log. Fabian reviews via the Evening Review touchpoint."
+    },
+    {
+      "name": "Mark Transcript Processed",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1650, 200],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE raw_transcripts SET processed = TRUE WHERE transcript_id = $1;"
+      }
+    },
+    {
+      "name": "Update Extraction Run",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1650, 400],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE extraction_run SET status = 'completed', completed_at = NOW(), items_proposed = $1 WHERE id = $2;"
+      }
+    },
+    {
+      "name": "Log Event",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1900, 200],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO event_log (event_type, entity_type, source, metadata) VALUES ('TranscriptExtracted', 'transcript', 'plaud_extraction', jsonb_build_object('transcript_id', $1, 'items_proposed', $2));"
+      }
+    },
+    {
+      "name": "Update Health Check",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1900, 400],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO health_checks (component, last_run, status, message) VALUES ('plaud_extraction', NOW(), 'ok', $1) ON CONFLICT (component) DO UPDATE SET last_run = EXCLUDED.last_run, status = EXCLUDED.status, message = EXCLUDED.message;"
+      }
+    }
+  ],
+  "connections": {
+    "Trigger on New Transcript": { "main": [[{ "node": "Check If Empty", "type": "main", "index": 0 }]] },
+    "Check If Empty": { "main": [[{ "node": "Create Extraction Run", "type": "main", "index": 0 }]] },
+    "Create Extraction Run": { "main": [[{ "node": "Call Claude API", "type": "main", "index": 0 }]] },
+    "Call Claude API": { "main": [[{ "node": "Parse Extraction Result", "type": "main", "index": 0 }]] },
+    "Parse Extraction Result": { "main": [[{ "node": "Write Gate Log Entries", "type": "main", "index": 0 }]] },
+    "Write Gate Log Entries": { "main": [[{ "node": "Mark Transcript Processed", "type": "main", "index": 0 }, { "node": "Update Extraction Run", "type": "main", "index": 0 }]] },
+    "Mark Transcript Processed": { "main": [[{ "node": "Log Event", "type": "main", "index": 0 }, { "node": "Update Health Check", "type": "main", "index": 0 }]] }
+  },
+  "settings": {
+    "executionTimeout": 120,
+    "maxTries": 2,
+    "waitBetweenTries": 10000
+  },
+  "meta": {
+    "phase": 1,
+    "owner": "Sam",
+    "description": "Extracts structured register items from PLAUD transcripts using Claude API. Every item enters confidence_gate_log as PROPOSED. Fabian reviews during Evening Review. No auto-promotion to CONFIRMED."
+  }
+}

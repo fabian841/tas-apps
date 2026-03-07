@@ -1,0 +1,51 @@
+{
+  "name": "Midday Check-in Webhook",
+  "nodes": [
+    {
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 300],
+      "parameters": {
+        "path": "midday-checkin",
+        "httpMethod": "GET",
+        "responseMode": "lastNode"
+      }
+    },
+    {
+      "name": "Fetch Today's Extraction Summary",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 200],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT register_name, COUNT(*) AS count FROM confidence_gate_log WHERE proposed_at::date = CURRENT_DATE AND status = 'PROPOSED' GROUP BY register_name ORDER BY count DESC;"
+      }
+    },
+    {
+      "name": "Fetch Today's Commitments",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 400],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT proposed_data->>'commitment' AS commitment, proposed_data->>'made_to' AS made_to, proposed_data->>'due_date' AS due_date FROM confidence_gate_log WHERE register_name = 'commitments' AND status IN ('PROPOSED', 'CONFIRMED') AND (proposed_data->>'due_date')::date <= CURRENT_DATE + 3 ORDER BY proposed_data->>'due_date' ASC LIMIT 10;"
+      }
+    },
+    {
+      "name": "Fetch Email Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [500, 600],
+      "parameters": {
+        "method": "GET",
+        "url": "http://localhost:5678/webhook/email-status"
+      }
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": { "main": [[{ "node": "Fetch Today's Extraction Summary", "type": "main", "index": 0 }, { "node": "Fetch Today's Commitments", "type": "main", "index": 0 }, { "node": "Fetch Email Status", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionTimeout": 15 },
+  "meta": {
+    "phase": 1,
+    "owner": "Sam",
+    "description": "GET /webhook/midday-checkin — returns today's extraction summary, upcoming commitments, and email status. Glance Midday touchpoint."
+  }
+}

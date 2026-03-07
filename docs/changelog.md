@@ -12,3 +12,15 @@ All notable changes to LIFE OS are documented here.
 - n8n webhooks for Glance: /plaud-status, /email-status.
 - Documentation: email triage SOP, Drive 12-folder structure, restore procedure, workflow owners.
 - Backup script with Healthchecks.io integration.
+
+## Phase 1 — Personal OS Live (March 2026)
+
+- Database: register_metadata, confidence_gate_log, extraction_run tables (migration 05).
+- 8 PIL register schemas: decisions, commitments, ideas, learnings, relationships, health, finance, patterns.
+- Confidence gating engine: PROPOSED -> CONFIRMED/REJECTED lifecycle. Only Fabian promotes.
+- PLAUD extraction workflow: Claude API (claude-sonnet-4-6) extracts structured items from transcripts.
+- Gate action webhook: POST /gate-action for Fabian to confirm/reject items.
+- 4 daily touchpoints via Glance: Morning Pulse, Midday Check-in, Evening Review (+ Weekly Reflection email).
+- n8n webhooks: /gate-review, /gate-action, /midday-checkin, /evening-review, /register-stats.
+- Weekly reflection email: Sunday 6 PM with gate summary, confirmation rate, backlog.
+- Documentation: confidence gating, touchpoints, register schemas.

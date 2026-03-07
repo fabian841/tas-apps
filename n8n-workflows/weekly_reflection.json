@@ -1,0 +1,101 @@
+{
+  "name": "Weekly Reflection",
+  "nodes": [
+    {
+      "name": "Cron Trigger",
+      "type": "n8n-nodes-base.cron",
+      "position": [250, 300],
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            { "mode": "custom", "cronExpression": "0 18 * * 0" }
+          ]
+        }
+      },
+      "notes": "Runs every Sunday at 6 PM AEDT."
+    },
+    {
+      "name": "Fetch Week Gate Summary",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 200],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT register_name, COUNT(*) FILTER (WHERE status = 'PROPOSED') AS proposed, COUNT(*) FILTER (WHERE status = 'CONFIRMED') AS confirmed, COUNT(*) FILTER (WHERE status = 'REJECTED') AS rejected FROM confidence_gate_log WHERE proposed_at > CURRENT_DATE - INTERVAL '7 days' GROUP BY register_name ORDER BY register_name;"
+      }
+    },
+    {
+      "name": "Fetch Confirmed Items This Week",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 400],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT register_name, proposed_data, confidence_label, reviewed_at FROM confidence_gate_log WHERE status = 'CONFIRMED' AND reviewed_at > CURRENT_DATE - INTERVAL '7 days' ORDER BY reviewed_at DESC;"
+      }
+    },
+    {
+      "name": "Fetch Extraction Quality",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 600],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT COUNT(*) AS total_runs, SUM(items_proposed) AS total_proposed, SUM(items_confirmed) AS total_confirmed, SUM(items_rejected) AS total_rejected, CASE WHEN SUM(items_proposed) > 0 THEN ROUND(SUM(items_confirmed)::numeric / SUM(items_proposed) * 100, 1) ELSE 0 END AS confirmation_rate FROM extraction_run WHERE started_at > CURRENT_DATE - INTERVAL '7 days' AND status = 'completed';"
+      }
+    },
+    {
+      "name": "Fetch Unreviewed Backlog",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 800],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT COUNT(*) AS total_pending, MIN(proposed_at) AS oldest_pending FROM confidence_gate_log WHERE status = 'PROPOSED';"
+      }
+    },
+    {
+      "name": "Send Weekly Email",
+      "type": "n8n-nodes-base.gmail",
+      "position": [850, 400],
+      "parameters": {
+        "sendTo": "fabian@fdnxt.com",
+        "subject": "Weekly Reflection — LIFE OS — {{$now.format('yyyy-MM-dd')}}",
+        "message": "Weekly Reflection Report\n\n=== Gate Summary (7 days) ===\n{{$json.gate_summary}}\n\n=== Confirmed Items ===\n{{$json.confirmed_items}}\n\n=== Extraction Quality ===\nConfirmation rate: {{$json.confirmation_rate}}%\nTotal proposed: {{$json.total_proposed}}\nTotal confirmed: {{$json.total_confirmed}}\n\n=== Backlog ===\nPending review: {{$json.total_pending}}\nOldest unreviewed: {{$json.oldest_pending}}\n\nReview pending items: http://localhost:8080 (Evening Review tab)",
+        "options": {}
+      }
+    },
+    {
+      "name": "Log Event",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1100, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO event_log (event_type, entity_type, source, metadata) VALUES ('WeeklyReflectionSent', 'system', 'weekly_reflection', jsonb_build_object('week_ending', CURRENT_DATE::text));"
+      }
+    },
+    {
+      "name": "Update Health Check",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1100, 500],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO health_checks (component, last_run, status) VALUES ('weekly_reflection', NOW(), 'ok') ON CONFLICT (component) DO UPDATE SET last_run = EXCLUDED.last_run, status = EXCLUDED.status;"
+      }
+    }
+  ],
+  "connections": {
+    "Cron Trigger": { "main": [[{ "node": "Fetch Week Gate Summary", "type": "main", "index": 0 }, { "node": "Fetch Confirmed Items This Week", "type": "main", "index": 0 }, { "node": "Fetch Extraction Quality", "type": "main", "index": 0 }, { "node": "Fetch Unreviewed Backlog", "type": "main", "index": 0 }]] },
+    "Fetch Week Gate Summary": { "main": [[{ "node": "Send Weekly Email", "type": "main", "index": 0 }]] },
+    "Fetch Confirmed Items This Week": { "main": [[{ "node": "Send Weekly Email", "type": "main", "index": 0 }]] },
+    "Fetch Extraction Quality": { "main": [[{ "node": "Send Weekly Email", "type": "main", "index": 0 }]] },
+    "Fetch Unreviewed Backlog": { "main": [[{ "node": "Send Weekly Email", "type": "main", "index": 0 }]] },
+    "Send Weekly Email": { "main": [[{ "node": "Log Event", "type": "main", "index": 0 }, { "node": "Update Health Check", "type": "main", "index": 0 }]] }
+  },
+  "settings": {
+    "executionTimeout": 60,
+    "maxTries": 2,
+    "waitBetweenTries": 10000
+  },
+  "meta": {
+    "phase": 1,
+    "owner": "Sam",
+    "description": "Runs Sunday 6 PM. Compiles gate summary, confirmed items, extraction quality (confirmation rate), and backlog into a weekly reflection email. This is touchpoint 4 of 4."
+  }
+}

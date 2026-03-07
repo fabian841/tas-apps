@@ -1,0 +1,52 @@
+{
+  "name": "Evening Review Webhook",
+  "nodes": [
+    {
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 300],
+      "parameters": {
+        "path": "evening-review",
+        "httpMethod": "GET",
+        "responseMode": "lastNode"
+      }
+    },
+    {
+      "name": "Fetch Pending PROPOSED Items",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 200],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, register_name, proposed_data, confidence_label, proposed_at FROM confidence_gate_log WHERE status = 'PROPOSED' ORDER BY CASE confidence_label WHEN 'HIGH' THEN 1 WHEN 'MEDIUM' THEN 2 WHEN 'LOW' THEN 3 END, proposed_at DESC LIMIT 25;"
+      },
+      "notes": "Sorted by confidence: HIGH items first (most likely correct, fastest to review)."
+    },
+    {
+      "name": "Fetch Today's Gate Stats",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 400],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT COUNT(*) FILTER (WHERE status = 'PROPOSED') AS pending, COUNT(*) FILTER (WHERE status = 'CONFIRMED' AND reviewed_at::date = CURRENT_DATE) AS confirmed_today, COUNT(*) FILTER (WHERE status = 'REJECTED' AND reviewed_at::date = CURRENT_DATE) AS rejected_today FROM confidence_gate_log;"
+      }
+    },
+    {
+      "name": "Fetch Extraction Runs Today",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 600],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT COUNT(*) AS runs, SUM(items_proposed) AS total_proposed FROM extraction_run WHERE started_at::date = CURRENT_DATE AND status = 'completed';"
+      }
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": { "main": [[{ "node": "Fetch Pending PROPOSED Items", "type": "main", "index": 0 }, { "node": "Fetch Today's Gate Stats", "type": "main", "index": 0 }, { "node": "Fetch Extraction Runs Today", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionTimeout": 15 },
+  "meta": {
+    "phase": 1,
+    "owner": "Sam",
+    "description": "GET /webhook/evening-review — returns pending PROPOSED items sorted by confidence (HIGH first), gate stats, and extraction run summary. This is Fabian's primary review touchpoint where he confirms/rejects items."
+  }
+}

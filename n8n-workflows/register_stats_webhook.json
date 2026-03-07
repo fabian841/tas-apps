@@ -1,0 +1,33 @@
+{
+  "name": "Register Stats Webhook (Glance)",
+  "nodes": [
+    {
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 300],
+      "parameters": {
+        "path": "register-stats",
+        "httpMethod": "GET",
+        "responseMode": "lastNode"
+      }
+    },
+    {
+      "name": "Fetch Register Stats",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT g.register_name, COUNT(*) FILTER (WHERE g.status = 'PROPOSED') AS pending, COUNT(*) FILTER (WHERE g.status = 'CONFIRMED') AS confirmed, COUNT(*) FILTER (WHERE g.status = 'REJECTED') AS rejected, r.last_synced_at FROM confidence_gate_log g LEFT JOIN register_metadata r ON r.register_name = g.register_name GROUP BY g.register_name, r.last_synced_at ORDER BY g.register_name;"
+      }
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": { "main": [[{ "node": "Fetch Register Stats", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionTimeout": 10 },
+  "meta": {
+    "phase": 1,
+    "owner": "Sam",
+    "description": "GET /webhook/register-stats — returns per-register counts (pending/confirmed/rejected) for Glance Morning Pulse."
+  }
+}

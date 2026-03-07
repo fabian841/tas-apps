@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PIL Registers — Column Definitions",
+  "description": "Schema for the 8 Personal Intelligence Layer registers. Each register is a Google Sheet tab. All AI-written rows start as PROPOSED.",
+  "registers": {
+    "decisions": {
+      "description": "Decisions made — what was decided, why, what was rejected",
+      "columns": [
+        { "name": "date", "type": "date", "required": true },
+        { "name": "decision", "type": "string", "required": true },
+        { "name": "context", "type": "string", "required": true },
+        { "name": "alternatives_rejected", "type": "string" },
+        { "name": "confidence", "type": "string", "enum": ["HIGH", "MEDIUM", "LOW"], "required": true },
+        { "name": "status", "type": "string", "enum": ["PROPOSED", "CONFIRMED", "REJECTED"], "default": "PROPOSED" },
+        { "name": "source", "type": "string" },
+        { "name": "tags", "type": "string" }
+      ]
+    },
+    "commitments": {
+      "description": "Commitments made to or by Fabian — who, what, when",
+      "columns": [
+        { "name": "date", "type": "date", "required": true },
+        { "name": "commitment", "type": "string", "required": true },
+        { "name": "made_by", "type": "string", "required": true },
+        { "name": "made_to", "type": "string", "required": true },
+        { "name": "due_date", "type": "date" },
+        { "name": "status", "type": "string", "enum": ["PROPOSED", "CONFIRMED", "REJECTED"], "default": "PROPOSED" },
+        { "name": "fulfilled", "type": "boolean", "default": false },
+        { "name": "confidence", "type": "string", "enum": ["HIGH", "MEDIUM", "LOW"], "required": true },
+        { "name": "source", "type": "string" }
+      ]
+    },
+    "ideas": {
+      "description": "Ideas captured — business, product, software, other",
+      "columns": [
+        { "name": "date", "type": "date", "required": true },
+        { "name": "idea", "type": "string", "required": true },
+        { "name": "category", "type": "string", "enum": ["business", "product", "software", "other"] },
+        { "name": "context", "type": "string" },
+        { "name": "confidence", "type": "string", "enum": ["HIGH", "MEDIUM", "LOW"], "required": true },
+        { "name": "status", "type": "string", "enum": ["PROPOSED", "CONFIRMED", "REJECTED"], "default": "PROPOSED" },
+        { "name": "source", "type": "string" }
+      ]
+    },
+    "learnings": {
+      "description": "Learnings — what was learned, from what, behaviour change it implies",
+      "columns": [
+        { "name": "date", "type": "date", "required": true },
+        { "name": "learning", "type": "string", "required": true },
+        { "name": "source_context", "type": "string", "required": true },
+        { "name": "behaviour_change", "type": "string" },
+        { "name": "confidence", "type": "string", "enum": ["HIGH", "MEDIUM", "LOW"], "required": true },
+        { "name": "status", "type": "string", "enum": ["PROPOSED", "CONFIRMED", "REJECTED"], "default": "PROPOSED" },
+        { "name": "source", "type": "string" }
+      ]
+    },
+    "relationships": {
+      "description": "Relationship signals — who, interaction type, sentiment, follow-up needed",
+      "columns": [
+        { "name": "date", "type": "date", "required": true },
+        { "name": "person", "type": "string", "required": true },
+        { "name": "interaction_type", "type": "string" },
+        { "name": "sentiment", "type": "string", "enum": ["positive", "neutral", "negative", "unclear"] },
+        { "name": "follow_up_needed", "type": "boolean", "default": false },
+        { "name": "notes", "type": "string" },
+        { "name": "confidence", "type": "string", "enum": ["HIGH", "MEDIUM", "LOW"], "required": true },
+        { "name": "status", "type": "string", "enum": ["PROPOSED", "CONFIRMED", "REJECTED"], "default": "PROPOSED" },
+        { "name": "source", "type": "string" }
+      ]
+    },
+    "health": {
+      "description": "Health observations — energy, sleep, stress, exercise, notable events",
+      "columns": [
+        { "name": "date", "type": "date", "required": true },
+        { "name": "observation", "type": "string", "required": true },
+        { "name": "category", "type": "string", "enum": ["energy", "sleep", "stress", "exercise", "nutrition", "other"] },
+        { "name": "confidence", "type": "string", "enum": ["HIGH", "MEDIUM", "LOW"], "required": true },
+        { "name": "status", "type": "string", "enum": ["PROPOSED", "CONFIRMED", "REJECTED"], "default": "PROPOSED" },
+        { "name": "source", "type": "string" }
+      ]
+    },
+    "finance": {
+      "description": "Personal finance signals — expenses, income, investments, observations",
+      "columns": [
+        { "name": "date", "type": "date", "required": true },
+        { "name": "observation", "type": "string", "required": true },
+        { "name": "category", "type": "string", "enum": ["expense", "income", "investment", "observation"] },
+        { "name": "amount", "type": "number" },
+        { "name": "currency", "type": "string", "default": "AUD" },
+        { "name": "confidence", "type": "string", "enum": ["HIGH", "MEDIUM", "LOW"], "required": true },
+        { "name": "status", "type": "string", "enum": ["PROPOSED", "CONFIRMED", "REJECTED"], "default": "PROPOSED" },
+        { "name": "source", "type": "string" }
+      ]
+    },
+    "patterns": {
+      "description": "Recurring patterns detected — requires 3+ occurrences minimum",
+      "columns": [
+        { "name": "date_detected", "type": "date", "required": true },
+        { "name": "pattern", "type": "string", "required": true },
+        { "name": "occurrences", "type": "integer", "minimum": 3, "required": true },
+        { "name": "evidence", "type": "string", "required": true },
+        { "name": "implication", "type": "string" },
+        { "name": "confidence", "type": "string", "enum": ["HIGH", "MEDIUM", "LOW"], "required": true },
+        { "name": "status", "type": "string", "enum": ["PROPOSED", "CONFIRMED", "REJECTED"], "default": "PROPOSED" },
+        { "name": "source", "type": "string" }
+      ]
+    }
+  },
+  "rules": {
+    "confidence_gating": {
+      "HIGH": "Clear, explicit statement. Direct quote available. No ambiguity.",
+      "MEDIUM": "Reasonable inference from context. Supporting evidence exists but not verbatim.",
+      "LOW": "Weak signal. Requires interpretation. May be noise."
+    },
+    "status_lifecycle": {
+      "PROPOSED": "Written by AI extraction. Not yet reviewed by Fabian.",
+      "CONFIRMED": "Reviewed and approved by Fabian. This is now truth.",
+      "REJECTED": "Reviewed by Fabian and rejected. Logged but not acted on."
+    },
+    "promotion_rule": "Only Fabian may promote PROPOSED to CONFIRMED. No automation may do this.",
+    "pattern_rule": "Patterns register requires 3+ occurrences minimum. Never propose a pattern from a single event."
+  }
+}

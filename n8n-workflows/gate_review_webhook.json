@@ -1,0 +1,43 @@
+{
+  "name": "Confidence Gate Review Webhook",
+  "nodes": [
+    {
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 300],
+      "parameters": {
+        "path": "gate-review",
+        "httpMethod": "GET",
+        "responseMode": "lastNode"
+      },
+      "notes": "Returns pending PROPOSED items for Fabian's review in Evening Review."
+    },
+    {
+      "name": "Fetch Pending Items",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, register_name, proposed_data, confidence_label, confidence_score, source_transcript_id, proposed_at FROM confidence_gate_log WHERE status = 'PROPOSED' ORDER BY proposed_at DESC LIMIT 50;"
+      }
+    },
+    {
+      "name": "Fetch Summary Stats",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 500],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT register_name, COUNT(*) AS pending_count, COUNT(*) FILTER (WHERE confidence_label = 'HIGH') AS high_count, COUNT(*) FILTER (WHERE confidence_label = 'MEDIUM') AS medium_count, COUNT(*) FILTER (WHERE confidence_label = 'LOW') AS low_count FROM confidence_gate_log WHERE status = 'PROPOSED' GROUP BY register_name ORDER BY register_name;"
+      }
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": { "main": [[{ "node": "Fetch Pending Items", "type": "main", "index": 0 }, { "node": "Fetch Summary Stats", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionTimeout": 10 },
+  "meta": {
+    "phase": 1,
+    "owner": "Sam",
+    "description": "GET /webhook/gate-review — returns pending PROPOSED items grouped by register with confidence breakdown. Used by Evening Review Glance widget."
+  }
+}

@@ -8,6 +8,13 @@ All workflows are owned by Sam until formally transitioned.
 | PLAUD Status Webhook | Sam | On demand (Glance) | Phase 0 |
 | Email Status Webhook | Sam | On demand (Glance) | Phase 0 |
 | Backup (script) | Sam | Daily 2 AM (cron) | Phase 0 |
+| PLAUD Extraction | Sam | After PLAUD pipeline | Phase 1 |
+| Gate Review Webhook | Sam | On demand (Glance) | Phase 1 |
+| Gate Action Webhook | Sam | On demand (Fabian) | Phase 1 |
+| Midday Check-in Webhook | Sam | On demand (Glance) | Phase 1 |
+| Evening Review Webhook | Sam | On demand (Glance) | Phase 1 |
+| Weekly Reflection | Sam | Sunday 6 PM (cron) | Phase 1 |
+| Register Stats Webhook | Sam | On demand (Glance) | Phase 1 |
 
 ## Sam's Monitoring Responsibilities
 
