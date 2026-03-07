@@ -1,0 +1,33 @@
+{
+  "name": "PLAUD Status Webhook (Glance)",
+  "nodes": [
+    {
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 300],
+      "parameters": {
+        "path": "plaud-status",
+        "httpMethod": "GET",
+        "responseMode": "lastNode"
+      }
+    },
+    {
+      "name": "Query Transcript Stats",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT (SELECT COUNT(*) FROM raw_transcripts WHERE ingested_at > NOW() - INTERVAL '24 hours') AS count_24h, (SELECT title FROM raw_transcripts ORDER BY ingested_at DESC LIMIT 1) AS last_title, (SELECT TO_CHAR(ingested_at, 'HH24:MI') FROM raw_transcripts ORDER BY ingested_at DESC LIMIT 1) AS last_time;"
+      }
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": { "main": [[{ "node": "Query Transcript Stats", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionTimeout": 10 },
+  "meta": {
+    "phase": 0,
+    "owner": "Sam",
+    "description": "GET /webhook/plaud-status — returns transcript count (24h) and last transcript info for Morning Pulse."
+  }
+}

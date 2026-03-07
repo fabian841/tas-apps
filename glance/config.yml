@@ -1,31 +1,51 @@
+# LIFE OS — Phase 0 Morning Pulse
+# Fabian checks this every morning at 6:30am before touching email.
+# Read-only. No register widgets until registers exist (Phase 1).
+
 pages:
-  - name: Fabian Command Center
+  - name: Morning Pulse
     columns: 2
     components:
+      # ── Time & Weather ────────────────────────────────
+      - type: clock
+        title: "Sydney"
+        timezone: "Australia/Sydney"
+
+      - type: weather
+        title: "Potts Point"
+        latitude: -33.8688
+        longitude: 151.2264
+        units: metric
+        cache: 30m
+
+      # ── Calendar ──────────────────────────────────────
+      - type: calendar
+        title: "Today's Agenda"
+        calendars:
+          - url: ${GOOGLE_CALENDAR_ICAL_URL}
+            name: "Fabian"
+
+      # ── Gmail Unread ──────────────────────────────────
+      - type: custom-api
+        title: "Email Status"
+        url: "http://n8n:5678/webhook/email-status"
+        cache: 15m
+        template: |
+          <div>TAS inbox: {{ .JSON.tas_unread }} unread</div>
+          <div>Personal inbox: {{ .JSON.personal_unread }} unread</div>
+
+      # ── PLAUD Pipeline ───────────────────────────────
+      - type: custom-api
+        title: "PLAUD Transcripts (24h)"
+        url: "http://n8n:5678/webhook/plaud-status"
+        cache: 30m
+        template: |
+          <div>Processed: {{ .JSON.count_24h }}</div>
+          <div>Last: {{ .JSON.last_title }} ({{ .JSON.last_time }})</div>
+
+      # ── System Health ─────────────────────────────────
       - type: http
         title: "n8n Service"
-        url: "http://localhost:5678/healthz/readiness"
+        url: "http://n8n:5678/healthz/readiness"
         expected: 200
         cache: 1m
-
-      - type: custom-api
-        title: "System Health Summary"
-        url: "http://localhost:5678/webhook/health-summary"
-        cache: 5m
-        template: |
-          {{ range .JSON.checks }}
-          <div>{{ .component }}: <span style="color: {{ if eq .status "ok" }}green{{ else if eq .status "warning" }}orange{{ else }}red{{ end }}">{{ .status }}</span> {{ .message }}</div>
-          {{ end }}
-
-      - type: custom-api
-        title: "Business Snapshot"
-        url: "http://localhost:5678/webhook/metrics"
-        cache: 1h
-        template: |
-          <div>Cash: ${{ .JSON.cash }}</div>
-          <div>Deals: {{ .JSON.deals_count }}</div>
-
-      - type: http
-        title: "Healthchecks.io (Backup)"
-        url: "https://hc-ping.com/{{ .Env.HC_BACKUP_UUID }}/last"
-        expected: 200

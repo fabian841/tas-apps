@@ -1,17 +1,14 @@
 # Changelog
 
-All notable changes to the Fabian Operating System are documented here.
+All notable changes to LIFE OS are documented here.
 
-## Phase 0 – Initial Commit (March 2026)
+## Phase 0 — Core Foundation (March 2026)
 
-- Created database schema: raw tables (`raw_emails`, `raw_drive_files`, `raw_agent_output`).
-- Created canonical tables: `canonical_deal`, `canonical_contact`, `canonical_idea`, `canonical_agent_finding`, `canonical_metric`, `canonical_task`, `canonical_product`.
-- Created `event_log` with BRIN indexes for efficient time-range queries.
-- Created `health_checks` and `credential_expiry` tables for monitoring.
-- Added JSON schemas for all canonical objects.
-- Created `docker-compose.yml` with PostgreSQL (pgvector) and n8n services.
-- Created capture scripts: `capture_gmail.py`, `capture_outlook.py`, `sync_drive.py`.
-- Created `backup.sh` with Healthchecks.io integration.
-- Created Glance dashboard configuration (`config.yml`).
-- Created documentation: data ownership matrix, workflow owners, restore procedure.
-- Added `.env.example` template for environment variables.
+- Rebuilt repository from LIFE OS Unified Specification (STR-003.1).
+- Infrastructure: Docker stack with pgvector (0.8.2-pg17), n8n (2.9.0), Glance (v0.7.4).
+- Database: raw_emails, raw_drive_files, raw_transcripts, raw_agent_output, event_log, health_checks.
+- PLAUD pipeline: n8n workflow (Zapier webhook > Drive 00_INBOX > Gmail confirm).
+- Morning Pulse: Glance dashboard (time, weather, calendar, email status, PLAUD status).
+- n8n webhooks for Glance: /plaud-status, /email-status.
+- Documentation: email triage SOP, Drive 12-folder structure, restore procedure, workflow owners.
+- Backup script with Healthchecks.io integration.

@@ -58,3 +58,14 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
+
+  glance:
+    image: glanceapp/glance:v0.7.4
+    container_name: fabian-glance
+    volumes:
+      - ./glance/config.yml:/app/config.yml
+    ports:
+      - "127.0.0.1:8080:8080"
+    restart: unless-stopped
+    networks:
+      - fabian-net

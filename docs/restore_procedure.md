@@ -1,16 +1,15 @@
-# Backup Restore Procedure
+# Disaster Recovery — Restore Procedure
 
-**Test quarterly.** Document each test result below.
+Test quarterly. Log each drill.
 
 ## Steps
 
-1. Stop services:
+1. Stop all services:
    ```bash
-   cd /opt/fabian-os
-   docker-compose down
+   cd /opt/fabian-os && docker-compose down
    ```
 
-2. Restore database (using latest backup):
+2. Restore database from latest backup:
    ```bash
    LATEST=$(ls -td /backups/*/ | head -1)
    pg_restore --clean --if-exists --no-owner --dbname=fabian_os "$LATEST/fabian_os.dump"
@@ -22,18 +21,17 @@
    ```
 
 4. Verify health:
-   ```bash
-   docker ps
-   curl http://localhost:5678/healthz/readiness
-   curl http://localhost:5678/webhook/health-summary
-   ```
+   - `docker ps` — all 3 containers running (postgres, n8n, glance)
+   - `curl http://localhost:5678/healthz/readiness` — n8n responding
+   - Check Glance dashboard at http://localhost:8080
+   - Spot-check: `SELECT COUNT(*) FROM raw_transcripts;`
 
 ## Success Criteria
 
 All checks pass and data is present.
 
-## Test Log
+## Drill Log
 
 | Date | Conducted By | Result | Notes |
 |------|-------------|--------|-------|
-| _pending_ | _—_ | _—_ | Initial test not yet performed |
+| | | | |

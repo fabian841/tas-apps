@@ -1,0 +1,105 @@
+{
+  "name": "PLAUD Pipeline (Phase 0)",
+  "nodes": [
+    {
+      "name": "Zapier Webhook Receiver",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 300],
+      "parameters": {
+        "path": "plaud-ingest",
+        "httpMethod": "POST",
+        "responseMode": "responseNode"
+      },
+      "notes": "Receives PLAUD transcript from Zapier. Payload: { title, transcript, duration, timestamp }"
+    },
+    {
+      "name": "Store Raw Transcript",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO raw_transcripts (transcript_id, title, raw_content, duration_seconds, source, ingested_at) VALUES ($1, $2, $3, $4, 'plaud', NOW()) ON CONFLICT (transcript_id) DO NOTHING RETURNING id;",
+        "options": {}
+      },
+      "notes": "Insert into raw_transcripts. transcript_id is unique to prevent duplicates."
+    },
+    {
+      "name": "Upload to Drive INBOX",
+      "type": "n8n-nodes-base.googleDrive",
+      "position": [750, 300],
+      "parameters": {
+        "operation": "upload",
+        "name": "={{$json.title}}_{{$now.format('yyyyMMdd_HHmmss')}}.txt",
+        "folderId": "GOOGLE_DRIVE_00_INBOX_FOLDER_ID",
+        "mimeType": "text/plain"
+      },
+      "notes": "Upload raw transcript to Google Drive 00_INBOX folder. Replace folderId with actual ID."
+    },
+    {
+      "name": "Update Drive Path",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1000, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE raw_transcripts SET drive_path = $1 WHERE transcript_id = $2;"
+      },
+      "notes": "Store the Drive file path back in the database."
+    },
+    {
+      "name": "Send Gmail Confirmation",
+      "type": "n8n-nodes-base.gmail",
+      "position": [1250, 300],
+      "parameters": {
+        "sendTo": "fabian@fdnxt.com",
+        "subject": "Transcript received — {{$json.title}} — {{$now.format('yyyy-MM-dd HH:mm')}}",
+        "message": "PLAUD transcript has been received and stored.\n\nTitle: {{$json.title}}\nDuration: {{$json.duration}} seconds\nTimestamp: {{$now.format('yyyy-MM-dd HH:mm:ss AEDT')}}\nDrive: 00_INBOX\n\nNo extraction in Phase 0. Review manually.",
+        "options": {}
+      },
+      "notes": "Step 5: Gmail confirmation to Fabian. Phase 0 stops here — no extraction."
+    },
+    {
+      "name": "Log Event",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1250, 500],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO event_log (event_type, entity_type, source, metadata) VALUES ('TranscriptReceived', 'transcript', 'plaud', jsonb_build_object('title', $1, 'transcript_id', $2));"
+      }
+    },
+    {
+      "name": "Update Health Check",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1500, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO health_checks (component, last_run, status, message) VALUES ('plaud_pipeline', NOW(), 'ok', $1) ON CONFLICT (component) DO UPDATE SET last_run = EXCLUDED.last_run, status = EXCLUDED.status, message = EXCLUDED.message;"
+      }
+    },
+    {
+      "name": "Respond OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [1500, 500],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"status\": \"ok\", \"message\": \"Transcript received\" }"
+      }
+    }
+  ],
+  "connections": {
+    "Zapier Webhook Receiver": { "main": [[{ "node": "Store Raw Transcript", "type": "main", "index": 0 }]] },
+    "Store Raw Transcript": { "main": [[{ "node": "Upload to Drive INBOX", "type": "main", "index": 0 }]] },
+    "Upload to Drive INBOX": { "main": [[{ "node": "Update Drive Path", "type": "main", "index": 0 }]] },
+    "Update Drive Path": { "main": [[{ "node": "Send Gmail Confirmation", "type": "main", "index": 0 }, { "node": "Log Event", "type": "main", "index": 0 }]] },
+    "Send Gmail Confirmation": { "main": [[{ "node": "Update Health Check", "type": "main", "index": 0 }, { "node": "Respond OK", "type": "main", "index": 0 }]] }
+  },
+  "settings": {
+    "executionTimeout": 120,
+    "maxTries": 3,
+    "waitBetweenTries": 5000
+  },
+  "meta": {
+    "phase": 0,
+    "owner": "Sam",
+    "description": "Phase 0 PLAUD pipeline (5 steps): PLAUD > Zapier > n8n webhook > Drive 00_INBOX > Gmail confirm. No extraction. No register writes. No AI. Prove the pipe before adding intelligence."
+  }
+}

@@ -4,14 +4,20 @@ All workflows are owned by Sam until formally transitioned.
 
 | Workflow | Owner | Schedule | Phase |
 |----------|-------|----------|-------|
-| Email Classification | Sam | Hourly | Phase 0 |
-| Weekly Scorecard | Sam | Monday 8 AM | Phase 0 |
-| Gmail Capture (script) | Sam | Hourly (cron) | Phase 0 |
-| Outlook Capture (script) | Sam | Hourly (cron) | Phase 0 |
-| Drive Sync (script) | Sam | Daily 3 AM (cron) | Phase 0 |
+| PLAUD Pipeline | Sam | On webhook (Zapier) | Phase 0 |
+| PLAUD Status Webhook | Sam | On demand (Glance) | Phase 0 |
+| Email Status Webhook | Sam | On demand (Glance) | Phase 0 |
 | Backup (script) | Sam | Daily 2 AM (cron) | Phase 0 |
-| Health Summary Webhook | Sam | On demand | Phase 0 |
-| Metrics Webhook | Sam | On demand | Phase 0 |
+
+## Sam's Monitoring Responsibilities
+
+| Frequency | Check | Action if Failed |
+|-----------|-------|-----------------|
+| Daily | PLAUD pipeline: did transcripts process overnight? | Diagnose and fix within 4 hours. Alert Fabian if >4 hours. |
+| Daily | Morning Pulse: Glance loading correctly? | Check Docker container health. Restart if needed. |
+| Weekly | Register row counts: are registers growing? | Flag to Fabian if any register has zero new rows in 7 days. |
+| Weekly | Confidence gate log: any silent drops? | Review error log. Fix any data being silently discarded. |
+| Monthly | n8n workflow health: any failing workflows? | Review all execution logs. Fix failures. Report to Fabian. |
 
 ## Ownership Transfer
 

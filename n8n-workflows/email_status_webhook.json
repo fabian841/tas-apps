@@ -1,0 +1,69 @@
+{
+  "name": "Email Status Webhook (Glance)",
+  "nodes": [
+    {
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 300],
+      "parameters": {
+        "path": "email-status",
+        "httpMethod": "GET",
+        "responseMode": "lastNode"
+      }
+    },
+    {
+      "name": "Fetch TAS Unread (Gmail)",
+      "type": "n8n-nodes-base.gmail",
+      "position": [500, 200],
+      "parameters": {
+        "operation": "getAll",
+        "returnAll": false,
+        "limit": 1,
+        "filters": {
+          "labelIds": ["UNREAD"],
+          "q": "to:fabian.diaz@trafficaccess.com.au"
+        }
+      },
+      "notes": "Count unread emails in TAS inbox"
+    },
+    {
+      "name": "Fetch Personal Unread (Gmail)",
+      "type": "n8n-nodes-base.gmail",
+      "position": [500, 400],
+      "parameters": {
+        "operation": "getAll",
+        "returnAll": false,
+        "limit": 1,
+        "filters": {
+          "labelIds": ["UNREAD"],
+          "q": "to:fabian@fdnxt.com"
+        }
+      },
+      "notes": "Count unread emails in personal inbox"
+    },
+    {
+      "name": "Format Response",
+      "type": "n8n-nodes-base.set",
+      "position": [750, 300],
+      "parameters": {
+        "values": {
+          "number": [
+            { "name": "tas_unread", "value": "={{$node['Fetch TAS Unread (Gmail)'].json.resultSizeEstimate}}" },
+            { "name": "personal_unread", "value": "={{$node['Fetch Personal Unread (Gmail)'].json.resultSizeEstimate}}" }
+          ]
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": { "main": [[{ "node": "Fetch TAS Unread (Gmail)", "type": "main", "index": 0 }, { "node": "Fetch Personal Unread (Gmail)", "type": "main", "index": 0 }]] },
+    "Fetch TAS Unread (Gmail)": { "main": [[{ "node": "Format Response", "type": "main", "index": 0 }]] },
+    "Fetch Personal Unread (Gmail)": { "main": [[{ "node": "Format Response", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionTimeout": 30 },
+  "meta": {
+    "phase": 0,
+    "owner": "Sam",
+    "description": "GET /webhook/email-status — returns unread counts for TAS and personal inboxes for Morning Pulse."
+  }
+}

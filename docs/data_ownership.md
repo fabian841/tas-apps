@@ -1,20 +1,29 @@
 # Data Ownership Matrix
 
-| Data Type | Owner | Source System | Canonical Table | Retention |
-|-----------|-------|---------------|-----------------|-----------|
-| Emails (Gmail) | Fabian | Gmail API | `raw_emails` | 1 year |
-| Emails (Outlook) | Fabian | Microsoft Graph | `raw_emails` | 1 year |
-| Drive Files | Fabian | Google Drive API | `raw_drive_files` | Permanent (metadata) |
-| Deals | Fabian | Zoho CRM | `canonical_deal` | Permanent |
-| Contacts | Fabian | Zoho CRM | `canonical_contact` | Permanent |
-| Ideas | Fabian | Idea Vault | `canonical_idea` | Permanent |
-| Agent Findings | System | Agents (n8n) | `canonical_agent_finding` | Permanent |
-| Metrics / KPIs | System | Zoho / Xero | `canonical_metric` | Permanent |
-| Tasks | Fabian | Zoho Projects | `canonical_task` | Permanent |
-| Products | Fabian | Zoho / Manual | `canonical_product` | Permanent |
-| Event Log | System | All components | `event_log` | 2 years |
-| Workflow Logs | System | n8n | `workflow_logs` | 90 days |
-| Health Checks | System | All components | `health_checks` | Current state only |
+## Isolation Rule (Non-Negotiable)
+
+No function in the Company layer may read Personal layer data.
+No Personal register may be visible in any staff-facing output.
+If a Personal insight becomes relevant to the Company, Fabian promotes it manually — logged, deliberate, bounded.
+
+## Phase 0 Data
+
+| Data Type | Layer | Owner | Storage | Retention |
+|-----------|-------|-------|---------|-----------|
+| PLAUD transcripts | Personal | Fabian | `raw_transcripts` + Drive 00_INBOX | Permanent |
+| Emails (Gmail) | Both | Fabian | `raw_emails` | 1 year |
+| Emails (M365 forwarded) | Both | Fabian | `raw_emails` | 1 year |
+| Drive file metadata | Both | Fabian | `raw_drive_files` | Permanent |
+| Event log | System | System | `event_log` | 2 years |
+| Health checks | System | System | `health_checks` | Current state only |
+
+## Future Phases
+
+| Data Type | Layer | Phase | Storage |
+|-----------|-------|-------|---------|
+| PIL Registers (8 sheets) | Personal | Phase 1 | Google Sheets |
+| Zoho CRM/Desk/Books data | Company | Phase 2 | Zoho + canonical tables |
+| Agent findings | Company | Phase 3+ | `canonical_agent_finding` |
 
 ## Access Control
 
@@ -24,4 +33,4 @@
 
 ## Change Policy
 
-Any changes to data ownership or access must follow the tiered change management process (see `change_management.md` when available).
+Any changes to data ownership or access must follow the tiered change management process.
