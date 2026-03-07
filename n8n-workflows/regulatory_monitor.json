@@ -1,0 +1,106 @@
+{
+  "name": "Regulatory Change Monitor",
+  "nodes": [
+    {
+      "name": "Cron",
+      "type": "n8n-nodes-base.cron",
+      "position": [250, 300],
+      "parameters": {
+        "triggerTimes": {
+          "item": [{ "mode": "everyWeek", "hour": 5, "minute": 0, "weekday": 3 }]
+        }
+      }
+    },
+    {
+      "name": "Get Monitored Regs",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT country, regulation_codes FROM config_regulatory_countries WHERE active = TRUE;"
+      }
+    },
+    {
+      "name": "Research via Perplexity",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [750, 300],
+      "parameters": {
+        "url": "https://api.perplexity.ai/chat/completions",
+        "method": "POST",
+        "headers": {
+          "Authorization": "Bearer ={{$env.PERPLEXITY_API_KEY}}",
+          "Content-Type": "application/json"
+        },
+        "body": "={\"model\":\"sonar\",\"messages\":[{\"role\":\"user\",\"content\":\"What regulatory changes have occurred in the past 14 days for traffic management, road safety, and temporary traffic control in Australia (especially NSW)? Include changes to TCAWS, AS/NZS 3845, and any state transport authority guidelines. Return only factual, sourced changes.\"}]}"
+      }
+    },
+    {
+      "name": "Extract via Claude",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1000, 300],
+      "parameters": {
+        "url": "https://api.anthropic.com/v1/messages",
+        "method": "POST",
+        "headers": {
+          "x-api-key": "={{$env.CLAUDE_API_KEY}}",
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json"
+        },
+        "body": "={\"model\":\"claude-haiku-4-5-20251001\",\"max_tokens\":2000,\"system\":\"Extract regulatory changes relevant to TAS (Traffic & Access Solutions). Return JSON array: [{\\\"regulation_name\\\": \\\"...\\\", \\\"change_type\\\": \\\"new|amendment|repeal|guidance_update\\\", \\\"summary\\\": \\\"...\\\", \\\"impact_assessment\\\": \\\"...\\\", \\\"impact_severity\\\": \\\"low|medium|high|critical\\\", \\\"affected_products\\\": [...], \\\"state_province\\\": \\\"...\\\"}]. Return empty array [] if no relevant changes.\",\"messages\":[{\"role\":\"user\",\"content\":\"Research output: \" + JSON.stringify($json)}]}"
+      }
+    },
+    {
+      "name": "Parse and Store",
+      "type": "n8n-nodes-base.code",
+      "position": [1250, 300],
+      "parameters": {
+        "code": "const response = $input.first().json;\nconst content = response.content?.[0]?.text || '[]';\nlet changes;\ntry {\n  const jsonMatch = content.match(/\\[.*\\]/s);\n  changes = JSON.parse(jsonMatch[0]);\n} catch(e) {\n  return [{ json: { changes_found: 0 } }];\n}\nreturn changes.map(c => ({ json: c }));"
+      }
+    },
+    {
+      "name": "Insert Changes",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1500, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO regulatory_changes (regulation_name, change_type, summary, impact_assessment, impact_severity, affected_products, state_province, detected_by) VALUES ('{{$json.regulation_name}}', '{{$json.change_type}}', '{{$json.summary}}', '{{$json.impact_assessment}}', '{{$json.impact_severity}}', ARRAY[{{($json.affected_products || []).map(p => \"'\" + p + \"'\").join(',')}}]::text[], '{{$json.state_province}}', 'agent') ON CONFLICT DO NOTHING;"
+      }
+    },
+    {
+      "name": "Alert on High Severity",
+      "type": "n8n-nodes-base.if",
+      "position": [1750, 300],
+      "parameters": {
+        "conditions": {
+          "string": [{ "value1": "={{$json.impact_severity}}", "operation": "equals", "value2": "high" }]
+        }
+      }
+    },
+    {
+      "name": "Send Alert Email",
+      "type": "n8n-nodes-base.emailSend",
+      "position": [2000, 200],
+      "parameters": {
+        "fromEmail": "system@fabiandiaz.com.au",
+        "toEmail": "fabian@fabiandiaz.com.au",
+        "subject": "REGULATORY ALERT: {{$json.regulation_name}}",
+        "text": "Impact: {{$json.impact_severity}}\n\nSummary: {{$json.summary}}\n\nAffected products: {{$json.affected_products}}\n\nAssessment: {{$json.impact_assessment}}"
+      }
+    }
+  ],
+  "connections": {
+    "Cron": { "main": [[{ "node": "Get Monitored Regs", "type": "main", "index": 0 }]] },
+    "Get Monitored Regs": { "main": [[{ "node": "Research via Perplexity", "type": "main", "index": 0 }]] },
+    "Research via Perplexity": { "main": [[{ "node": "Extract via Claude", "type": "main", "index": 0 }]] },
+    "Extract via Claude": { "main": [[{ "node": "Parse and Store", "type": "main", "index": 0 }]] },
+    "Parse and Store": { "main": [[{ "node": "Insert Changes", "type": "main", "index": 0 }]] },
+    "Insert Changes": { "main": [[{ "node": "Alert on High Severity", "type": "main", "index": 0 }]] },
+    "Alert on High Severity": { "main": [[{ "node": "Send Alert Email", "type": "main", "index": 0 }], []] }
+  },
+  "settings": { "executionTimeout": 300 },
+  "meta": {
+    "phase": 5,
+    "owner": "Sam",
+    "description": "Wednesday 5 AM — scans for regulatory changes affecting traffic management in AU. Alerts on high-severity changes. Stores in regulatory_changes."
+  }
+}

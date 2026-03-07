@@ -1,0 +1,62 @@
+{
+  "name": "Pipeline Forecast Generator",
+  "nodes": [
+    {
+      "name": "Cron",
+      "type": "n8n-nodes-base.cron",
+      "position": [250, 300],
+      "parameters": {
+        "triggerTimes": {
+          "item": [{ "mode": "everyWeek", "hour": 6, "minute": 0, "weekday": 1 }]
+        }
+      }
+    },
+    {
+      "name": "Get Pipeline Data",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT stage, COUNT(*) AS deal_count, SUM(amount) AS total_value, AVG(amount) AS avg_deal_size, SUM(amount * COALESCE(probability, 50) / 100.0) AS weighted_value FROM zoho_deals WHERE stage NOT IN ('Closed Won', 'Closed Lost') GROUP BY stage ORDER BY stage;"
+      }
+    },
+    {
+      "name": "Get Won Lost This Period",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 500],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT COALESCE(SUM(CASE WHEN stage = 'Closed Won' THEN amount END), 0) AS won, COALESCE(SUM(CASE WHEN stage = 'Closed Lost' THEN amount END), 0) AS lost, COUNT(CASE WHEN stage = 'Closed Won' THEN 1 END) AS won_count, COUNT(CASE WHEN stage = 'Closed Lost' THEN 1 END) AS lost_count FROM zoho_deals WHERE modified_in_zoho >= date_trunc('week', CURRENT_DATE);"
+      }
+    },
+    {
+      "name": "Calculate Forecast",
+      "type": "n8n-nodes-base.code",
+      "position": [750, 400],
+      "parameters": {
+        "code": "const pipeline = $('Get Pipeline Data').all();\nconst wonLost = $('Get Won Lost This Period').first().json;\n\nconst totalPipeline = pipeline.reduce((sum, s) => sum + (parseFloat(s.json.total_value) || 0), 0);\nconst weightedPipeline = pipeline.reduce((sum, s) => sum + (parseFloat(s.json.weighted_value) || 0), 0);\nconst dealCount = pipeline.reduce((sum, s) => sum + (parseInt(s.json.deal_count) || 0), 0);\nconst avgDealSize = dealCount > 0 ? totalPipeline / dealCount : 0;\nconst won = parseFloat(wonLost.won) || 0;\nconst lost = parseFloat(wonLost.lost) || 0;\nconst convRate = (won + lost) > 0 ? (won / (won + lost)) * 100 : 0;\n\nconst now = new Date();\nconst weekNum = Math.ceil(((now - new Date(now.getFullYear(), 0, 1)) / 86400000 + 1) / 7);\n\nreturn [{ json: {\n  period_type: 'weekly',\n  period_label: `W${weekNum}-${now.getFullYear()}`,\n  pipeline_total: totalPipeline.toFixed(2),\n  weighted_pipeline: weightedPipeline.toFixed(2),\n  won_to_date: won.toFixed(2),\n  lost_to_date: lost.toFixed(2),\n  deal_count: dealCount,\n  avg_deal_size: avgDealSize.toFixed(2),\n  conversion_rate: convRate.toFixed(2)\n}}];"
+      }
+    },
+    {
+      "name": "Store Forecast",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1000, 400],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO pipeline_forecast (period_type, period_label, pipeline_total, weighted_pipeline, won_to_date, lost_to_date, deal_count, avg_deal_size, conversion_rate) VALUES ('{{$json.period_type}}', '{{$json.period_label}}', {{$json.pipeline_total}}, {{$json.weighted_pipeline}}, {{$json.won_to_date}}, {{$json.lost_to_date}}, {{$json.deal_count}}, {{$json.avg_deal_size}}, {{$json.conversion_rate}});"
+      }
+    }
+  ],
+  "connections": {
+    "Cron": { "main": [[{ "node": "Get Pipeline Data", "type": "main", "index": 0 }, { "node": "Get Won Lost This Period", "type": "main", "index": 0 }]] },
+    "Get Pipeline Data": { "main": [[{ "node": "Calculate Forecast", "type": "main", "index": 0 }]] },
+    "Get Won Lost This Period": { "main": [[{ "node": "Calculate Forecast", "type": "main", "index": 0 }]] },
+    "Calculate Forecast": { "main": [[{ "node": "Store Forecast", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionTimeout": 120 },
+  "meta": {
+    "phase": 4,
+    "owner": "Sam",
+    "description": "Monday 6 AM — calculates weekly pipeline forecast from zoho_deals, stores in pipeline_forecast table."
+  }
+}

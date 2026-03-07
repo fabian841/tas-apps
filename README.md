@@ -53,9 +53,13 @@ Two systems work together: **Zoho One** (source of truth for business operations
 │   ├── 05_registers_and_gating.sql  # PIL registers + confidence gate
 │   ├── 06_company_os.sql       # Zoho mirror tables + PB4000 doctrine + warranty
 │   ├── 07_agent_framework.sql  # MCP registry + agent sessions + findings
-│   └── 08_rockefeller_and_config.sql  # Quarters, meetings, scorecards, config tables
-├── n8n-workflows/              # 20+ exported n8n workflow definitions
-├── glance/                     # Dashboard configuration (7 pages)
+│   ├── 08_rockefeller_and_config.sql  # Quarters, meetings, scorecards, config tables
+│   ├── 09_forecasting.sql       # Pipeline forecast, deal scoring, revenue targets
+│   ├── 10_compliance.sql        # Regulatory changes, compliance checklists, certifications
+│   ├── 11_tender_intelligence.sql  # Tenders, supplier risk, bid evaluations
+│   └── 12_tz30_launch.sql       # TZ30 milestones, subscriptions, tech scout, agent swarm
+├── n8n-workflows/              # 38 exported n8n workflow definitions
+├── glance/                     # Dashboard configuration (10 pages)
 ├── scripts/
 │   ├── backup.sh               # Daily DB backup + Healthchecks.io ping
 │   ├── capture_gmail.py        # Gmail incremental sync to raw_emails
@@ -130,8 +134,8 @@ Two systems work together: **Zoho One** (source of truth for business operations
 
 1. Copy `.env.example` to `/opt/fabian-os/.env`, fill in credentials, `chmod 600 .env`
 2. `docker-compose up -d` — starts pgvector, n8n, and Glance
-3. Run migrations in order: `psql -U fabian_admin -d fabian_os -f migrations/01_raw_tables.sql` (repeat for each)
-4. `pip install -r scripts/requirements.txt` — install capture script dependencies
-5. Set up cron jobs for capture scripts (see script headers for schedule)
-6. Import n8n workflows from `n8n-workflows/` directory
+3. `./scripts/init.sh` — creates app user, runs all 8 migrations, grants permissions
+4. `./scripts/import-workflows.sh` — imports all n8n workflows via API
+5. `./scripts/setup-cron.sh` — registers capture scripts + backup to crontab
+6. `./scripts/smoke-test.sh` — validates tables, endpoints, MCP servers
 7. Check Morning Pulse dashboard at `http://localhost:8080`

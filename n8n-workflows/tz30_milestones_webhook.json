@@ -1,0 +1,42 @@
+{
+  "name": "TZ30 Milestones Webhook",
+  "nodes": [
+    {
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 300],
+      "parameters": {
+        "path": "tz30-milestones",
+        "httpMethod": "GET",
+        "responseMode": "lastNode"
+      }
+    },
+    {
+      "name": "Get All Milestones",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT milestone_name, category, owner, target_date, completed_date, status, blocker, (target_date - CURRENT_DATE) AS days_until_due FROM tz30_launch_milestones ORDER BY target_date ASC;"
+      }
+    },
+    {
+      "name": "Format Response",
+      "type": "n8n-nodes-base.code",
+      "position": [750, 300],
+      "parameters": {
+        "code": "const milestones = $input.all().map(i => i.json);\nconst completed = milestones.filter(m => m.status === 'completed').length;\nconst atRisk = milestones.filter(m => m.status === 'at_risk').length;\nconst blocked = milestones.filter(m => m.status === 'blocked').length;\nreturn [{ json: {\n  total: milestones.length,\n  completed,\n  at_risk: atRisk,\n  blocked,\n  progress_pct: milestones.length > 0 ? Math.round(completed / milestones.length * 100) : 0,\n  milestones\n}}];"
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Get All Milestones", "type": "main", "index": 0 }]] },
+    "Get All Milestones": { "main": [[{ "node": "Format Response", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionTimeout": 30 },
+  "meta": {
+    "phase": 7,
+    "owner": "Sam",
+    "description": "GET /webhook/tz30-milestones — returns TZ30 launch milestone status for Glance."
+  }
+}

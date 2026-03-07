@@ -1,0 +1,83 @@
+{
+  "name": "Tender Scanner",
+  "nodes": [
+    {
+      "name": "Cron",
+      "type": "n8n-nodes-base.cron",
+      "position": [250, 300],
+      "parameters": {
+        "triggerTimes": {
+          "item": [{ "mode": "everyWeek", "hour": 5, "minute": 30, "weekday": 2 }]
+        }
+      }
+    },
+    {
+      "name": "Get Tender Sources",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT source_name, source_url, search_keywords, jurisdiction FROM config_tender_sources WHERE active = TRUE;"
+      }
+    },
+    {
+      "name": "Search via Perplexity",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [750, 300],
+      "parameters": {
+        "url": "https://api.perplexity.ai/chat/completions",
+        "method": "POST",
+        "headers": {
+          "Authorization": "Bearer ={{$env.PERPLEXITY_API_KEY}}",
+          "Content-Type": "application/json"
+        },
+        "body": "={\"model\":\"sonar\",\"messages\":[{\"role\":\"user\",\"content\":\"Find recent government tenders in Australia for traffic management equipment, portable boom barriers, traffic control devices, road work safety equipment, and temporary traffic management. Include tenders from AusTender, NSW eTendering, and Victorian government procurement. Focus on tenders opened in the last 14 days. Return details: title, issuing authority, value estimate, close date, reference number.\"}]}"
+      }
+    },
+    {
+      "name": "Extract and Score",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1000, 300],
+      "parameters": {
+        "url": "https://api.anthropic.com/v1/messages",
+        "method": "POST",
+        "headers": {
+          "x-api-key": "={{$env.CLAUDE_API_KEY}}",
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json"
+        },
+        "body": "={\"model\":\"claude-haiku-4-5-20251001\",\"max_tokens\":2000,\"system\":\"Extract tender opportunities relevant to TAS (Traffic & Access Solutions, sells PB4000 portable boom barriers and MINIBOOM TZ30). Score relevance 0-100. Return JSON array: [{\\\"title\\\": \\\"...\\\", \\\"issuing_authority\\\": \\\"...\\\", \\\"jurisdiction\\\": \\\"...\\\", \\\"category\\\": \\\"traffic_management|road_works|events|infrastructure\\\", \\\"estimated_value\\\": N or null, \\\"close_date\\\": \\\"YYYY-MM-DD\\\" or null, \\\"external_id\\\": \\\"...\\\", \\\"relevance_score\\\": N, \\\"fit_analysis\\\": \\\"...\\\"}]. Only include tenders with relevance_score >= 40.\",\"messages\":[{\"role\":\"user\",\"content\":\"Tender research output: \" + JSON.stringify($json)}]}"
+      }
+    },
+    {
+      "name": "Parse Results",
+      "type": "n8n-nodes-base.code",
+      "position": [1250, 300],
+      "parameters": {
+        "code": "const response = $input.first().json;\nconst content = response.content?.[0]?.text || '[]';\nlet tenders;\ntry {\n  const jsonMatch = content.match(/\\[.*\\]/s);\n  tenders = JSON.parse(jsonMatch[0]);\n} catch(e) {\n  return [{ json: { tenders_found: 0 } }];\n}\nreturn tenders.map(t => ({ json: { ...t, source: 'perplexity' } }));"
+      }
+    },
+    {
+      "name": "Insert Tenders",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1500, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO tenders (source, external_id, title, issuing_authority, jurisdiction, category, estimated_value, close_date, relevance_score, fit_analysis, detected_by) VALUES ('{{$json.source}}', '{{$json.external_id}}', '{{$json.title}}', '{{$json.issuing_authority}}', '{{$json.jurisdiction}}', '{{$json.category}}', {{$json.estimated_value || 'NULL'}}, {{$json.close_date ? \"'\" + $json.close_date + \"'\" : 'NULL'}}, {{$json.relevance_score}}, '{{$json.fit_analysis}}', 'agent') ON CONFLICT (source, external_id) DO UPDATE SET relevance_score = EXCLUDED.relevance_score, updated_at = NOW();"
+      }
+    }
+  ],
+  "connections": {
+    "Cron": { "main": [[{ "node": "Get Tender Sources", "type": "main", "index": 0 }]] },
+    "Get Tender Sources": { "main": [[{ "node": "Search via Perplexity", "type": "main", "index": 0 }]] },
+    "Search via Perplexity": { "main": [[{ "node": "Extract and Score", "type": "main", "index": 0 }]] },
+    "Extract and Score": { "main": [[{ "node": "Parse Results", "type": "main", "index": 0 }]] },
+    "Parse Results": { "main": [[{ "node": "Insert Tenders", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionTimeout": 300 },
+  "meta": {
+    "phase": 6,
+    "owner": "Sam",
+    "description": "Tuesday 5:30 AM — scans government tender portals for traffic management opportunities. Scores relevance and stores in tenders table."
+  }
+}

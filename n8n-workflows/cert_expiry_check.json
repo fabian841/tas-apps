@@ -1,0 +1,75 @@
+{
+  "name": "Certification Expiry Check",
+  "nodes": [
+    {
+      "name": "Cron",
+      "type": "n8n-nodes-base.cron",
+      "position": [250, 300],
+      "parameters": {
+        "triggerTimes": {
+          "item": [{ "mode": "everyDay", "hour": 7, "minute": 30 }]
+        }
+      }
+    },
+    {
+      "name": "Check Expiring Certs",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE certifications SET status = 'expiring_30d' WHERE expiry_date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '30 days' AND status = 'active' RETURNING entity_type, entity_id, certification_name, expiry_date;"
+      }
+    },
+    {
+      "name": "Check Expired",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 500],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE certifications SET status = 'expired' WHERE expiry_date < CURRENT_DATE AND status IN ('active', 'expiring_30d') RETURNING entity_type, entity_id, certification_name, expiry_date;"
+      }
+    },
+    {
+      "name": "Merge Results",
+      "type": "n8n-nodes-base.code",
+      "position": [750, 400],
+      "parameters": {
+        "code": "const expiring = $('Check Expiring Certs').all().map(i => ({...i.json, alert_type: 'expiring_30d'}));\nconst expired = $('Check Expired').all().map(i => ({...i.json, alert_type: 'expired'}));\nconst all = [...expired, ...expiring];\nif (all.length === 0) return [{ json: { no_alerts: true } }];\nreturn all.map(a => ({ json: a }));"
+      }
+    },
+    {
+      "name": "Has Alerts",
+      "type": "n8n-nodes-base.if",
+      "position": [1000, 400],
+      "parameters": {
+        "conditions": {
+          "boolean": [{ "value1": "={{!$json.no_alerts}}", "operation": "true" }]
+        }
+      }
+    },
+    {
+      "name": "Send Alert",
+      "type": "n8n-nodes-base.emailSend",
+      "position": [1250, 300],
+      "parameters": {
+        "fromEmail": "system@fabiandiaz.com.au",
+        "toEmail": "fabian@fabiandiaz.com.au",
+        "subject": "CERT {{$json.alert_type}}: {{$json.certification_name}} for {{$json.entity_id}}",
+        "text": "Certification: {{$json.certification_name}}\nEntity: {{$json.entity_type}} — {{$json.entity_id}}\nExpiry: {{$json.expiry_date}}\nStatus: {{$json.alert_type}}"
+      }
+    }
+  ],
+  "connections": {
+    "Cron": { "main": [[{ "node": "Check Expiring Certs", "type": "main", "index": 0 }, { "node": "Check Expired", "type": "main", "index": 0 }]] },
+    "Check Expiring Certs": { "main": [[{ "node": "Merge Results", "type": "main", "index": 0 }]] },
+    "Check Expired": { "main": [[{ "node": "Merge Results", "type": "main", "index": 0 }]] },
+    "Merge Results": { "main": [[{ "node": "Has Alerts", "type": "main", "index": 0 }]] },
+    "Has Alerts": { "main": [[{ "node": "Send Alert", "type": "main", "index": 0 }], []] }
+  },
+  "settings": { "executionTimeout": 60 },
+  "meta": {
+    "phase": 5,
+    "owner": "Sam",
+    "description": "Daily 7:30 AM — checks for expiring/expired certifications (product, person, company). Emails alerts."
+  }
+}

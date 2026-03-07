@@ -1,0 +1,33 @@
+{
+  "name": "Tenders Webhook",
+  "nodes": [
+    {
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 300],
+      "parameters": {
+        "path": "tenders",
+        "httpMethod": "GET",
+        "responseMode": "lastNode"
+      }
+    },
+    {
+      "name": "Get Active Tenders",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT title, issuing_authority, jurisdiction, category, estimated_value, close_date, relevance_score, status, bid_decision, (close_date - CURRENT_DATE) AS days_until_close FROM tenders WHERE status NOT IN ('expired', 'lost', 'withdrawn') AND (close_date IS NULL OR close_date >= CURRENT_DATE) ORDER BY relevance_score DESC, close_date ASC LIMIT 15;"
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Get Active Tenders", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionTimeout": 30 },
+  "meta": {
+    "phase": 6,
+    "owner": "Sam",
+    "description": "GET /webhook/tenders — returns active tenders sorted by relevance for Glance."
+  }
+}

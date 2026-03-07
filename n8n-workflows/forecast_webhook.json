@@ -1,0 +1,33 @@
+{
+  "name": "Forecast Webhook",
+  "nodes": [
+    {
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 300],
+      "parameters": {
+        "path": "forecast",
+        "httpMethod": "GET",
+        "responseMode": "lastNode"
+      }
+    },
+    {
+      "name": "Get Latest Forecasts",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT period_type, period_label, pipeline_total, weighted_pipeline, won_to_date, lost_to_date, deal_count, avg_deal_size, conversion_rate, forecast_date FROM pipeline_forecast WHERE forecast_date >= CURRENT_DATE - INTERVAL '90 days' ORDER BY forecast_date DESC LIMIT 13;"
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Get Latest Forecasts", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionTimeout": 30 },
+  "meta": {
+    "phase": 4,
+    "owner": "Sam",
+    "description": "GET /webhook/forecast — returns last 13 weeks of pipeline forecast data for Glance."
+  }
+}

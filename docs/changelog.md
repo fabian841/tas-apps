@@ -2,6 +2,16 @@
 
 All notable changes to TAS Operating System are documented here.
 
+## Phases 4-7 — Forecasting, Compliance, Tenders, TZ30 Launch (March 2026)
+
+- Added migration 09_forecasting.sql: pipeline_forecast, deal_score, revenue_target tables.
+- Added migration 10_compliance.sql: regulatory_changes, compliance_checklist, certifications tables.
+- Added migration 11_tender_intelligence.sql: tenders, supplier_risk, bid_evaluations tables.
+- Added migration 12_tz30_launch.sql: tz30_launch_milestones, tz30_subscriptions, tech_scout, agent_swarm_tasks tables. Seeded 10 TZ30 milestones and morning_intelligence swarm.
+- Added 11 n8n workflows: pipeline_forecast, deal_scoring, forecast_webhook, regulatory_monitor, cert_expiry_check, tender_scanner, supplier_risk_assessment, tz30_launch_tracker, tech_scout, tz30_milestones_webhook, tenders_webhook.
+- Glance expanded to 10 pages: added Pipeline & Forecast, Compliance & Tenders, TZ30 Launch.
+- Updated workflow_owners.md with all Phase 4-7 workflows.
+
 ## Architecture Reconciliation (March 2026)
 
 - Reconciled three architecture sources: STR-003.1 (original rebuild), Fabian OS Build Manuals (Phases 0-7), and TAS-001.3 (Zoho-centric foundation).

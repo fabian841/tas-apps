@@ -1,0 +1,74 @@
+{
+  "name": "TZ30 Launch Status Tracker",
+  "nodes": [
+    {
+      "name": "Cron",
+      "type": "n8n-nodes-base.cron",
+      "position": [250, 300],
+      "parameters": {
+        "triggerTimes": {
+          "item": [{ "mode": "everyWeek", "hour": 8, "minute": 0, "weekday": 5 }]
+        }
+      }
+    },
+    {
+      "name": "Get Milestones",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT milestone_name, category, owner, target_date, status, blocker, (target_date - CURRENT_DATE) AS days_until_due FROM tz30_launch_milestones WHERE status != 'completed' ORDER BY target_date ASC;"
+      }
+    },
+    {
+      "name": "Flag At Risk",
+      "type": "n8n-nodes-base.code",
+      "position": [750, 300],
+      "parameters": {
+        "code": "const milestones = $input.all().map(i => i.json);\nconst atRisk = milestones.filter(m => m.days_until_due <= 14 && m.status !== 'completed');\nconst blocked = milestones.filter(m => m.status === 'blocked');\n\n// Auto-update at_risk status\nconst updates = milestones.filter(m => m.days_until_due <= 14 && m.status === 'pending')\n  .map(m => m.milestone_name);\n\nconst completed = milestones.filter(m => m.status === 'completed').length;\nconst total = milestones.length;\n\nreturn [{ json: {\n  total_milestones: total,\n  completed,\n  at_risk: atRisk.length,\n  blocked: blocked.length,\n  at_risk_items: atRisk,\n  blocked_items: blocked,\n  auto_flag: updates\n}}];"
+      }
+    },
+    {
+      "name": "Update At Risk",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1000, 200],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE tz30_launch_milestones SET status = 'at_risk', updated_at = NOW() WHERE status = 'pending' AND target_date <= CURRENT_DATE + INTERVAL '14 days';"
+      }
+    },
+    {
+      "name": "Has Issues",
+      "type": "n8n-nodes-base.if",
+      "position": [1000, 400],
+      "parameters": {
+        "conditions": {
+          "number": [{ "value1": "={{$json.at_risk + $json.blocked}}", "operation": "larger", "value2": 0 }]
+        }
+      }
+    },
+    {
+      "name": "Send Weekly Report",
+      "type": "n8n-nodes-base.emailSend",
+      "position": [1250, 300],
+      "parameters": {
+        "fromEmail": "system@fabiandiaz.com.au",
+        "toEmail": "fabian@fabiandiaz.com.au",
+        "subject": "TZ30 Launch Status: {{$json.completed}}/{{$json.total_milestones}} complete, {{$json.at_risk}} at risk",
+        "text": "TZ30 Launch Progress\n\nCompleted: {{$json.completed}}/{{$json.total_milestones}}\nAt Risk: {{$json.at_risk}}\nBlocked: {{$json.blocked}}\n\nAt Risk Items:\n{{$json.at_risk_items.map(i => '- ' + i.milestone_name + ' (due: ' + i.target_date + ', owner: ' + i.owner + ')').join('\\n')}}\n\nBlocked Items:\n{{$json.blocked_items.map(i => '- ' + i.milestone_name + ': ' + (i.blocker || 'no blocker details')).join('\\n')}}"
+      }
+    }
+  ],
+  "connections": {
+    "Cron": { "main": [[{ "node": "Get Milestones", "type": "main", "index": 0 }]] },
+    "Get Milestones": { "main": [[{ "node": "Flag At Risk", "type": "main", "index": 0 }]] },
+    "Flag At Risk": { "main": [[{ "node": "Update At Risk", "type": "main", "index": 0 }, { "node": "Has Issues", "type": "main", "index": 0 }]] },
+    "Has Issues": { "main": [[{ "node": "Send Weekly Report", "type": "main", "index": 0 }], []] }
+  },
+  "settings": { "executionTimeout": 60 },
+  "meta": {
+    "phase": 7,
+    "owner": "Sam",
+    "description": "Friday 8 AM — reviews TZ30 launch milestones, auto-flags at-risk items, emails weekly status to Fabian."
+  }
+}

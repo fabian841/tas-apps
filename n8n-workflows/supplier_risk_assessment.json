@@ -1,0 +1,68 @@
+{
+  "name": "Supplier Risk Assessment",
+  "nodes": [
+    {
+      "name": "Cron",
+      "type": "n8n-nodes-base.cron",
+      "position": [250, 300],
+      "parameters": {
+        "triggerTimes": {
+          "item": [{ "mode": "everyMonth", "hour": 6, "minute": 0, "dayOfMonth": 1 }]
+        }
+      }
+    },
+    {
+      "name": "Get Suppliers",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT supplier_name, contact_name, country, products_supplied, lead_time_days FROM config_suppliers WHERE active = TRUE;"
+      }
+    },
+    {
+      "name": "Assess via Claude",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [750, 300],
+      "parameters": {
+        "url": "https://api.anthropic.com/v1/messages",
+        "method": "POST",
+        "headers": {
+          "x-api-key": "={{$env.CLAUDE_API_KEY}}",
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json"
+        },
+        "body": "={\"model\":\"claude-haiku-4-5-20251001\",\"max_tokens\":2000,\"system\":\"Assess supply chain risk for TAS (Traffic & Access Solutions) suppliers. Consider: single-source risk, geographic risk (China tariffs, shipping), lead time risk, financial stability indicators. Return JSON array: [{\\\"supplier_name\\\": \\\"...\\\", \\\"overall_risk\\\": \\\"low|medium|high|critical\\\", \\\"risk_factors\\\": {\\\"delivery_reliability\\\": N, \\\"financial_stability\\\": N, \\\"single_source\\\": bool, \\\"geopolitical_risk\\\": N}, \\\"lead_time_days\\\": N, \\\"mitigation_plan\\\": \\\"...\\\"}]\",\"messages\":[{\"role\":\"user\",\"content\":\"Suppliers: \" + JSON.stringify($json)}]}"
+      }
+    },
+    {
+      "name": "Parse and Store",
+      "type": "n8n-nodes-base.code",
+      "position": [1000, 300],
+      "parameters": {
+        "code": "const response = $input.first().json;\nconst content = response.content?.[0]?.text || '[]';\nlet assessments;\ntry {\n  const jsonMatch = content.match(/\\[.*\\]/s);\n  assessments = JSON.parse(jsonMatch[0]);\n} catch(e) {\n  return [{ json: { error: 'parse_failed' } }];\n}\nreturn assessments.map(a => ({ json: a }));"
+      }
+    },
+    {
+      "name": "Insert Assessments",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1250, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO supplier_risk (supplier_name, overall_risk, risk_factors, lead_time_days, mitigation_plan) VALUES ('{{$json.supplier_name}}', '{{$json.overall_risk}}', '{{JSON.stringify($json.risk_factors)}}'::jsonb, {{$json.lead_time_days || 'NULL'}}, '{{$json.mitigation_plan}}');"
+      }
+    }
+  ],
+  "connections": {
+    "Cron": { "main": [[{ "node": "Get Suppliers", "type": "main", "index": 0 }]] },
+    "Get Suppliers": { "main": [[{ "node": "Assess via Claude", "type": "main", "index": 0 }]] },
+    "Assess via Claude": { "main": [[{ "node": "Parse and Store", "type": "main", "index": 0 }]] },
+    "Parse and Store": { "main": [[{ "node": "Insert Assessments", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionTimeout": 180 },
+  "meta": {
+    "phase": 6,
+    "owner": "Sam",
+    "description": "Monthly 1st at 6 AM — assesses supply chain risk for all active suppliers. Stores in supplier_risk table."
+  }
+}

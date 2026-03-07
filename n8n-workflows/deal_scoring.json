@@ -1,0 +1,68 @@
+{
+  "name": "Deal Scoring Agent",
+  "nodes": [
+    {
+      "name": "Cron",
+      "type": "n8n-nodes-base.cron",
+      "position": [250, 300],
+      "parameters": {
+        "triggerTimes": {
+          "item": [{ "mode": "everyWeek", "hour": 7, "minute": 0, "weekday": 1 }]
+        }
+      }
+    },
+    {
+      "name": "Get Unscored Deals",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT d.zoho_id, d.deal_name, d.stage, d.amount, d.probability, d.closing_date, d.pipeline, d.owner_name, a.account_name, a.industry FROM zoho_deals d LEFT JOIN zoho_accounts a ON d.account_zoho_id = a.zoho_id WHERE d.stage NOT IN ('Closed Won', 'Closed Lost') AND (d.zoho_id NOT IN (SELECT deal_zoho_id FROM deal_score WHERE scored_at > NOW() - INTERVAL '7 days')) ORDER BY d.amount DESC NULLS LAST LIMIT 20;"
+      }
+    },
+    {
+      "name": "Score via Claude",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [750, 300],
+      "parameters": {
+        "url": "https://api.anthropic.com/v1/messages",
+        "method": "POST",
+        "headers": {
+          "x-api-key": "={{$env.CLAUDE_API_KEY}}",
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json"
+        },
+        "body": "={\"model\":\"claude-sonnet-4-6\",\"max_tokens\":2000,\"system\":\"You are a B2B deal scoring agent for TAS (Traffic & Access Solutions). Score each deal 0-100 based on engagement level, budget confirmation, decision timeline, competitive position, and strategic fit. Return JSON array: [{\\\"zoho_id\\\": \\\"...\\\", \\\"score\\\": N, \\\"factors\\\": {...}, \\\"risk_flags\\\": [...], \\\"recommendation\\\": \\\"...\\\"}]\",\"messages\":[{\"role\":\"user\",\"content\":\"Score these deals: \" + JSON.stringify($json)}]}"
+      }
+    },
+    {
+      "name": "Parse and Store",
+      "type": "n8n-nodes-base.code",
+      "position": [1000, 300],
+      "parameters": {
+        "code": "const response = $input.first().json;\nconst content = response.content?.[0]?.text || '';\nlet scores;\ntry {\n  const jsonMatch = content.match(/\\[.*\\]/s);\n  scores = JSON.parse(jsonMatch[0]);\n} catch(e) {\n  return [{ json: { error: 'Failed to parse scores', raw: content }}];\n}\nreturn scores.map(s => ({ json: s }));"
+      }
+    },
+    {
+      "name": "Insert Scores",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1250, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO deal_score (deal_zoho_id, score, factors, risk_flags, recommendation) VALUES ('{{$json.zoho_id}}', {{$json.score}}, '{{JSON.stringify($json.factors)}}'::jsonb, ARRAY[{{$json.risk_flags.map(f => \"'\" + f + \"'\").join(',')}}]::text[], '{{$json.recommendation}}') ON CONFLICT DO NOTHING;"
+      }
+    }
+  ],
+  "connections": {
+    "Cron": { "main": [[{ "node": "Get Unscored Deals", "type": "main", "index": 0 }]] },
+    "Get Unscored Deals": { "main": [[{ "node": "Score via Claude", "type": "main", "index": 0 }]] },
+    "Score via Claude": { "main": [[{ "node": "Parse and Store", "type": "main", "index": 0 }]] },
+    "Parse and Store": { "main": [[{ "node": "Insert Scores", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionTimeout": 300 },
+  "meta": {
+    "phase": 4,
+    "owner": "Sam",
+    "description": "Monday 7 AM — AI-scores open deals based on engagement, budget, timeline, and competitive position. Stores in deal_score."
+  }
+}

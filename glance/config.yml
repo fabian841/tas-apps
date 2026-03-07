@@ -1,6 +1,7 @@
 # TAS Operating System — Glance Dashboard
-# 7 pages: Morning Pulse, Business Snapshot, Midday Check-in, Evening Review,
-#           Daily Flash, Rocks & Scorecard, Agent Monitor
+# 10 pages: Morning Pulse, Business Snapshot, Midday Check-in, Evening Review,
+#            Daily Flash, Rocks & Scorecard, Pipeline & Forecast, Compliance & Tenders,
+#            TZ30 Launch, Agent Monitor
 # Architecture: Zoho is source of truth (TAS-001.3). This dashboard reads from
 # PostgreSQL (synced from Zoho) and n8n webhooks.
 # Hard boundary: Daily Flash queries Company tables only. No Personal data.
@@ -269,6 +270,114 @@ pages:
         template: |
           {{ range .JSON.meetings }}
           <div>{{ .date }}: {{ .type }} – {{ .agenda_short }}</div>
+          {{ end }}
+
+  # ── Pipeline & Forecast (Phase 4) ──────────────────────
+  - name: Pipeline & Forecast
+    columns: 2
+    components:
+      - type: custom-api
+        title: "Pipeline Forecast (13 weeks)"
+        url: "http://n8n:5678/webhook/forecast"
+        cache: 1h
+        template: |
+          {{ range .JSON }}
+          <div>{{ .period_label }}: Pipeline ${{ .pipeline_total }} | Weighted ${{ .weighted_pipeline }} | Won ${{ .won_to_date }} | Conv {{ .conversion_rate }}%</div>
+          {{ end }}
+
+      - type: custom-api
+        title: "Sales Pipeline by Stage"
+        url: "http://n8n:5678/webhook/daily-flash"
+        cache: 30m
+        template: |
+          {{ range .JSON.pipeline }}
+          <div>{{ .stage }}: {{ .deal_count }} deals (${{ .total_value }})</div>
+          {{ end }}
+
+      - type: custom-api
+        title: "Financial Position"
+        url: "http://n8n:5678/webhook/metrics"
+        cache: 1h
+        template: |
+          <div>Cash: ${{ .JSON.cash }}</div>
+          <div>Pipeline: ${{ .JSON.pipeline_total }}</div>
+          <div>Receivables: ${{ .JSON.receivables }}</div>
+          <div>Payables: ${{ .JSON.payables }}</div>
+
+  # ── Compliance & Tenders (Phases 5-6) ─────────────────
+  - name: Compliance & Tenders
+    columns: 2
+    components:
+      - type: custom-api
+        title: "Active Tenders"
+        url: "http://n8n:5678/webhook/tenders"
+        cache: 6h
+        template: |
+          {{ range .JSON }}
+          <div style="margin-bottom:6px; border-left:3px solid {{ if ge .relevance_score 80 }}green{{ else if ge .relevance_score 60 }}orange{{ else }}#ccc{{ end }}; padding-left:8px;">
+            <strong>{{ .title }}</strong> ({{ .relevance_score }}/100)<br/>
+            <small>{{ .issuing_authority }} | {{ .jurisdiction }} | Closes: {{ .close_date }} ({{ .days_until_close }}d) | {{ .status }}</small>
+          </div>
+          {{ end }}
+
+      - type: custom-api
+        title: "Regulatory Changes"
+        url: "http://n8n:5678/webhook/agent-findings"
+        cache: 6h
+        template: |
+          {{ range .JSON.findings }}
+          <div style="margin-bottom:6px">
+            <strong>{{ .title }}</strong><br/>
+            <small>{{ .summary }}</small>
+          </div>
+          {{ end }}
+
+      - type: custom-api
+        title: "Competitor Intelligence"
+        url: "http://n8n:5678/webhook/agent-findings"
+        cache: 6h
+        template: |
+          {{ range .JSON.findings }}
+          <div style="margin-bottom:6px">
+            <strong>{{ .title }}</strong> ({{ .relevance_score }}/10)<br/>
+            <small>{{ .summary }}</small>
+          </div>
+          {{ end }}
+
+  # ── TZ30 Launch Tracker (Phase 7) ─────────────────────
+  - name: TZ30 Launch
+    columns: 2
+    components:
+      - type: custom-api
+        title: "Launch Progress"
+        url: "http://n8n:5678/webhook/tz30-milestones"
+        cache: 1h
+        template: |
+          <div style="font-size:1.5em; font-weight:bold;">{{ .JSON.progress_pct }}% Complete</div>
+          <div>{{ .JSON.completed }}/{{ .JSON.total }} milestones done</div>
+          <div style="color:orange;">{{ .JSON.at_risk }} at risk</div>
+          <div style="color:red;">{{ .JSON.blocked }} blocked</div>
+
+      - type: custom-api
+        title: "Milestones"
+        url: "http://n8n:5678/webhook/tz30-milestones"
+        cache: 1h
+        template: |
+          {{ range .JSON.milestones }}
+          <div style="margin-bottom:6px; border-left:3px solid {{ if eq .status "completed" }}green{{ else if eq .status "at_risk" }}orange{{ else if eq .status "blocked" }}red{{ else }}#ccc{{ end }}; padding-left:8px;">
+            <strong>{{ .milestone_name }}</strong><br/>
+            <small>{{ .category }} | {{ .owner }} | Due: {{ .target_date }} ({{ .days_until_due }}d) | {{ .status }}</small>
+            {{ if .blocker }}<br/><small style="color:red;">Blocker: {{ .blocker }}</small>{{ end }}
+          </div>
+          {{ end }}
+
+      - type: custom-api
+        title: "Weekly Scorecard"
+        url: "http://n8n:5678/webhook/scorecard"
+        cache: 1h
+        template: |
+          {{ range .JSON }}
+          <div>{{ .metric_name }}: {{ .value }} {{ if .target }}(target: {{ .target }}){{ end }}</div>
           {{ end }}
 
   # ── Agent Monitor ──────────────────────────────────────

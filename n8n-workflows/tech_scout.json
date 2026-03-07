@@ -1,0 +1,73 @@
+{
+  "name": "Tech Scout Agent",
+  "nodes": [
+    {
+      "name": "Cron",
+      "type": "n8n-nodes-base.cron",
+      "position": [250, 300],
+      "parameters": {
+        "triggerTimes": {
+          "item": [{ "mode": "everyWeek", "hour": 4, "minute": 0, "weekday": 4 }]
+        }
+      }
+    },
+    {
+      "name": "Research via Perplexity",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [500, 300],
+      "parameters": {
+        "url": "https://api.perplexity.ai/chat/completions",
+        "method": "POST",
+        "headers": {
+          "Authorization": "Bearer ={{$env.PERPLEXITY_API_KEY}}",
+          "Content-Type": "application/json"
+        },
+        "body": "{\"model\":\"sonar\",\"messages\":[{\"role\":\"user\",\"content\":\"What are the latest developments in: 1) IoT sensors for traffic management and road safety, 2) battery technology for portable outdoor equipment, 3) lightweight materials for safety barriers, 4) AI/computer vision for traffic monitoring, 5) solar power for portable devices? Focus on commercially available or near-commercial technologies from the past 30 days.\"}]}"
+      }
+    },
+    {
+      "name": "Extract Findings",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [750, 300],
+      "parameters": {
+        "url": "https://api.anthropic.com/v1/messages",
+        "method": "POST",
+        "headers": {
+          "x-api-key": "={{$env.CLAUDE_API_KEY}}",
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json"
+        },
+        "body": "={\"model\":\"claude-haiku-4-5-20251001\",\"max_tokens\":2000,\"system\":\"Extract technology findings relevant to TAS (maker of PB4000 portable boom barriers and MINIBOOM TZ30 with IoT). Score relevance 0-100. Return JSON array: [{\\\"technology_name\\\": \\\"...\\\", \\\"category\\\": \\\"iot_sensors|battery|materials|software|ai|manufacturing\\\", \\\"summary\\\": \\\"...\\\", \\\"relevance_to_tas\\\": \\\"...\\\", \\\"relevance_score\\\": N, \\\"maturity\\\": \\\"research|prototype|commercial|mature\\\", \\\"potential_impact\\\": \\\"cost_reduction|new_capability|competitive_advantage\\\"}]. Only include items with relevance_score >= 50.\",\"messages\":[{\"role\":\"user\",\"content\":\"Research: \" + JSON.stringify($json)}]}"
+      }
+    },
+    {
+      "name": "Parse and Store",
+      "type": "n8n-nodes-base.code",
+      "position": [1000, 300],
+      "parameters": {
+        "code": "const response = $input.first().json;\nconst content = response.content?.[0]?.text || '[]';\nlet findings;\ntry {\n  const jsonMatch = content.match(/\\[.*\\]/s);\n  findings = JSON.parse(jsonMatch[0]);\n} catch(e) {\n  return [{ json: { findings_found: 0 } }];\n}\nreturn findings.map(f => ({ json: f }));"
+      }
+    },
+    {
+      "name": "Insert Findings",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1250, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO tech_scout (technology_name, category, summary, relevance_to_tas, relevance_score, maturity, potential_impact) VALUES ('{{$json.technology_name}}', '{{$json.category}}', '{{$json.summary}}', '{{$json.relevance_to_tas}}', {{$json.relevance_score}}, '{{$json.maturity}}', '{{$json.potential_impact}}');"
+      }
+    }
+  ],
+  "connections": {
+    "Cron": { "main": [[{ "node": "Research via Perplexity", "type": "main", "index": 0 }]] },
+    "Research via Perplexity": { "main": [[{ "node": "Extract Findings", "type": "main", "index": 0 }]] },
+    "Extract Findings": { "main": [[{ "node": "Parse and Store", "type": "main", "index": 0 }]] },
+    "Parse and Store": { "main": [[{ "node": "Insert Findings", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionTimeout": 300 },
+  "meta": {
+    "phase": 7,
+    "owner": "Sam",
+    "description": "Thursday 4 AM — scouts emerging technologies relevant to TAS products (IoT, battery, materials, AI). Stores in tech_scout."
+  }
+}

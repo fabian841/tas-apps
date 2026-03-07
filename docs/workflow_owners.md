@@ -42,6 +42,18 @@ All workflows are owned by Sam until formally transitioned.
 | Outlook Capture (script) | Sam | Hourly offset 30m (cron) | Reconciliation |
 | Drive Sync (script) | Sam | Daily 3 AM (cron) | Reconciliation |
 
+| Pipeline Forecast | Sam | Monday 6 AM (cron) | Phase 4 |
+| Deal Scoring Agent | Sam | Monday 7 AM (cron) | Phase 4 |
+| Forecast Webhook | Sam | On demand (Glance) | Phase 4 |
+| Regulatory Change Monitor | Sam | Wednesday 5 AM (cron) | Phase 5 |
+| Certification Expiry Check | Sam | Daily 7:30 AM (cron) | Phase 5 |
+| Tender Scanner | Sam | Tuesday 5:30 AM (cron) | Phase 6 |
+| Supplier Risk Assessment | Sam | Monthly 1st 6 AM (cron) | Phase 6 |
+| Tenders Webhook | Sam | On demand (Glance) | Phase 6 |
+| TZ30 Launch Tracker | Sam | Friday 8 AM (cron) | Phase 7 |
+| Tech Scout Agent | Sam | Thursday 4 AM (cron) | Phase 7 |
+| TZ30 Milestones Webhook | Sam | On demand (Glance) | Phase 7 |
+
 ## Sam's Monitoring Responsibilities
 
 | Frequency | Check | Action if Failed |
