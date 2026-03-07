@@ -1,0 +1,70 @@
+theme:
+  background-color: 0 0 16
+  primary-color: 210 80 60
+  positive-color: 150 80 50
+  negative-color: 0 80 60
+
+pages:
+  - name: Fabian OS
+    columns:
+      - size: small
+        widgets:
+          - type: monitor
+            title: System Health
+            cache: 1m
+            sites:
+              - title: n8n
+                url: http://fabian-n8n:5678/healthz/readiness
+                icon: si:n8n
+              - title: PostgreSQL
+                url: http://fabian-postgres:5432
+                icon: si:postgresql
+                allow-insecure: true
+
+          - type: custom-api
+            title: Component Health
+            cache: 1m
+            url: http://fabian-n8n:5678/webhook/health-summary
+            template: |
+              {{- range .JSON.Array "" }}
+              {{ .String "component" }}: {{ .String "status" }} ({{ .String "message" }})
+              {{- end }}
+
+      - size: full
+        widgets:
+          - type: custom-api
+            title: Business Snapshot
+            cache: 5m
+            url: http://fabian-n8n:5678/webhook/health-summary
+            headers:
+              Accept: application/json
+            template: |
+              System Status: {{ (index (.JSON.Array "") 0).String "status" }}
+              Components monitored: {{ len (.JSON.Array "") }}
+
+          - type: custom-api
+            title: Recent Events
+            cache: 2m
+            url: http://fabian-n8n:5678/webhook/recent-events
+            headers:
+              Accept: application/json
+            template: |
+              {{- range .JSON.Array "" }}
+              [{{ .String "event_type" }}] {{ .String "entity_type" }} — {{ .String "source" }}
+              {{- end }}
+
+      - size: small
+        widgets:
+          - type: clock
+            hour-format: 24h
+            timezones:
+              - timezone: Australia/Sydney
+                label: Sydney
+
+          - type: custom-api
+            title: Quick Stats
+            cache: 10m
+            url: http://fabian-n8n:5678/webhook/health-summary
+            template: |
+              Dashboard loaded successfully.
+              Configure additional widgets as data flows in.

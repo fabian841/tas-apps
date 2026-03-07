@@ -1,0 +1,94 @@
+version: "3.8"
+
+services:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL – Data Platform (Raw + Canonical + Event Log)
+  # Uses pgvector image which includes pgvector extension; pgcrypto is built-in
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: fabian-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-fabian}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-fabian_os}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./migrations/init-databases.sh:/docker-entrypoint-initdb.d/01-init-databases.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-fabian} -d ${POSTGRES_DB:-fabian_os}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - fabian-net
+
+  # ---------------------------------------------------------------------------
+  # n8n – Automation Layer (workflow orchestration)
+  # Uses PostgreSQL as backend for persistence
+  # ---------------------------------------------------------------------------
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: fabian-n8n
+    restart: unless-stopped
+    environment:
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=${POSTGRES_DB:-fabian_os}
+      - DB_POSTGRESDB_USER=${POSTGRES_USER:-fabian}
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      - N8N_BASIC_AUTH_ACTIVE=${N8N_BASIC_AUTH_ACTIVE:-true}
+      - N8N_BASIC_AUTH_USER=${N8N_BASIC_AUTH_USER:-admin}
+      - N8N_BASIC_AUTH_PASSWORD=${N8N_BASIC_AUTH_PASSWORD:-changeme}
+      - N8N_HOST=${N8N_HOST:-localhost}
+      - N8N_PORT=${N8N_PORT:-5678}
+      - N8N_PROTOCOL=${N8N_PROTOCOL:-http}
+      - WEBHOOK_URL=${WEBHOOK_URL:-http://localhost:5678/}
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY:?Set N8N_ENCRYPTION_KEY in .env}
+      - GENERIC_TIMEZONE=Australia/Sydney
+    ports:
+      - "127.0.0.1:${N8N_PORT:-5678}:5678"
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./scripts:/scripts:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:5678/healthz/readiness || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - fabian-net
+
+  # ---------------------------------------------------------------------------
+  # Glance – Interface Layer (lightweight dashboard)
+  # ---------------------------------------------------------------------------
+  glance:
+    image: glanceapp/glance:latest
+    container_name: fabian-glance
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${GLANCE_PORT:-8080}:8080"
+    volumes:
+      - ./config/glance.yml:/app/glance.yml:ro
+    depends_on:
+      n8n:
+        condition: service_healthy
+    networks:
+      - fabian-net
+
+volumes:
+  pgdata:
+    driver: local
+  n8n_data:
+    driver: local
+
+networks:
+  fabian-net:
+    driver: bridge

@@ -1,0 +1,194 @@
+{
+  "name": "System Health Check (Scheduled)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Every 15 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT component, last_run, status, message, metadata FROM health_checks WHERE status != 'ok' OR last_run < NOW() - INTERVAL '1 hour' OR last_run IS NULL ORDER BY status DESC, last_run ASC;",
+        "options": {}
+      },
+      "id": "check-unhealthy",
+      "name": "Find Unhealthy Components",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [470, 300],
+      "credentials": {
+        "postgres": {
+          "id": "CONFIGURE_ME",
+          "name": "Fabian OS PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-results",
+              "leftValue": "={{ $json }}",
+              "rightValue": "",
+              "operator": {
+                "type": "object",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-unhealthy",
+      "name": "Has Unhealthy Components?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [690, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE health_checks SET last_run = NOW(), status = 'ok', message = 'n8n health check passed' WHERE component = 'n8n_service';",
+        "options": {}
+      },
+      "id": "update-n8n-health",
+      "name": "Update n8n Health Status",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [690, 500],
+      "credentials": {
+        "postgres": {
+          "id": "CONFIGURE_ME",
+          "name": "Fabian OS PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO event_log (event_type, entity_type, source, metadata) VALUES ('HealthAlertTriggered', 'health_checks', 'system_health_check', $1::jsonb);",
+        "options": {}
+      },
+      "id": "log-alert-event",
+      "name": "Log Alert Event",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [910, 200],
+      "credentials": {
+        "postgres": {
+          "id": "CONFIGURE_ME",
+          "name": "Fabian OS PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "fabian-os@yourdomain.com",
+        "toEmail": "={{ $env.ALERT_EMAIL_TO }}",
+        "subject": "Fabian OS Health Alert – {{ $json.component }}",
+        "text": "Component: {{ $json.component }}\nStatus: {{ $json.status }}\nLast Run: {{ $json.last_run }}\nMessage: {{ $json.message }}\n\nPlease investigate.",
+        "options": {}
+      },
+      "id": "send-alert-email",
+      "name": "Send Alert Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [910, 400],
+      "credentials": {
+        "smtp": {
+          "id": "CONFIGURE_ME",
+          "name": "Alert SMTP"
+        }
+      },
+      "disabled": true
+    }
+  ],
+  "connections": {
+    "Every 15 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Find Unhealthy Components",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Update n8n Health Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Unhealthy Components": {
+      "main": [
+        [
+          {
+            "node": "Has Unhealthy Components?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Unhealthy Components?": {
+      "main": [
+        [
+          {
+            "node": "Log Alert Event",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send Alert Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "executionTimeout": 30
+  },
+  "tags": [
+    {
+      "name": "health",
+      "id": "health-tag"
+    },
+    {
+      "name": "phase-0",
+      "id": "phase-0-tag"
+    }
+  ],
+  "pinData": {},
+  "meta": {
+    "instanceId": "fabian-os",
+    "templateCredsSetupCompleted": false
+  }
+}

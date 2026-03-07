@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fabian-os/schemas/canonical_metric.json",
+  "title": "Canonical Metric",
+  "description": "Business KPI or measurement",
+  "type": "object",
+  "required": ["metric_name", "metric_category", "source_system"],
+  "properties": {
+    "id": { "type": "string", "format": "uuid" },
+    "metric_name": { "type": "string", "minLength": 1 },
+    "metric_category": {
+      "type": "string",
+      "enum": ["financial", "sales", "operations", "product", "customer", "system", "other"],
+      "minLength": 1
+    },
+    "value_numeric": { "type": "number" },
+    "value_text": { "type": "string" },
+    "unit": { "type": "string" },
+    "period_start": { "type": "string", "format": "date" },
+    "period_end": { "type": "string", "format": "date" },
+    "measured_at": { "type": "string", "format": "date-time" },
+    "tags": { "type": "array", "items": { "type": "string" } },
+    "source_system": { "type": "string", "minLength": 1 },
+    "external_id": { "type": "string" },
+    "metadata": { "type": "object", "default": {} },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}

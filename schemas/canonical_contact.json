@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fabian-os/schemas/canonical_contact.json",
+  "title": "Canonical Contact",
+  "description": "Person or organisation",
+  "type": "object",
+  "required": ["full_name", "source_system"],
+  "properties": {
+    "id": { "type": "string", "format": "uuid" },
+    "first_name": { "type": "string" },
+    "last_name": { "type": "string" },
+    "full_name": { "type": "string", "minLength": 1 },
+    "email": { "type": "string", "format": "email" },
+    "phone": { "type": "string" },
+    "company_name": { "type": "string" },
+    "job_title": { "type": "string" },
+    "contact_type": {
+      "type": "string",
+      "enum": ["person", "organisation"],
+      "default": "person"
+    },
+    "tags": { "type": "array", "items": { "type": "string" } },
+    "notes": { "type": "string" },
+    "source_system": { "type": "string", "minLength": 1 },
+    "external_id": { "type": "string" },
+    "metadata": { "type": "object", "default": {} },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}
