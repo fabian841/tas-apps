@@ -1,0 +1,10 @@
+{
+  "name": "zoho-crm-mcp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Zoho CRM MCP server for LIFE OS Company Layer",
+  "main": "index.js",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  }
+}

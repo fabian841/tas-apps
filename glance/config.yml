@@ -1,6 +1,7 @@
-# LIFE OS — Dashboard (Phase 2: Personal + Company)
+# LIFE OS — Dashboard (Phase 3: Personal + Company + Agents)
 # Personal: Morning Pulse, Midday Check-in, Evening Review (+ Weekly Reflection email)
 # Company: Daily Flash (TAS business intelligence)
+# Agents: Agent Monitor (session history, findings, MCP health)
 # Hard boundary: Daily Flash queries Company tables only. No Personal data.
 
 pages:
@@ -185,3 +186,58 @@ pages:
         template: |
           <div>Last sync: {{ .JSON.sync.completed_at }}</div>
           <div>Status: {{ .JSON.sync.status }} ({{ .JSON.sync.records_synced }} records)</div>
+
+  # ── Agent Monitor ──────────────────────────────────
+  - name: Agent Monitor
+    columns: 2
+    components:
+      - type: custom-api
+        title: "Agent Sessions (Today)"
+        url: "http://n8n:5678/webhook/agent-status"
+        cache: 5m
+        template: |
+          {{ range .JSON.stats }}
+          <div>{{ .agent_context }}: {{ .today }} today ({{ .completed }} ok, {{ .failed }} failed)</div>
+          {{ end }}
+
+      - type: custom-api
+        title: "Recent Sessions"
+        url: "http://n8n:5678/webhook/agent-status"
+        cache: 5m
+        template: |
+          {{ range .JSON.sessions }}
+          <div style="margin-bottom:6px">
+            <strong>[{{ .agent_context }}]</strong> {{ .status }} — {{ .input_summary }}<br/>
+            <small>{{ .started_at }} ({{ .duration_seconds }}s)</small>
+          </div>
+          {{ end }}
+
+      - type: custom-api
+        title: "Agent Findings (PROPOSED)"
+        url: "http://n8n:5678/webhook/agent-status"
+        cache: 5m
+        template: |
+          {{ range .JSON.findings_stats }}
+          <div>{{ .agent_context }}: {{ .proposed }} proposed, {{ .confirmed }} confirmed, {{ .rejected }} rejected</div>
+          {{ end }}
+
+      - type: custom-api
+        title: "Recent Findings"
+        url: "http://n8n:5678/webhook/agent-status"
+        cache: 5m
+        template: |
+          {{ range .JSON.findings }}
+          <div style="margin-bottom:6px">
+            <strong>[{{ .confidence }}]</strong> {{ .finding_type }}: {{ .title }}<br/>
+            <small>{{ .agent_context }} | {{ .status }} | {{ .created_at }}</small>
+          </div>
+          {{ end }}
+
+      - type: custom-api
+        title: "MCP Servers"
+        url: "http://n8n:5678/webhook/agent-status"
+        cache: 15m
+        template: |
+          {{ range .JSON.mcp_servers }}
+          <div>{{ .server_name }} ({{ .layer }}): {{ .status }}</div>
+          {{ end }}

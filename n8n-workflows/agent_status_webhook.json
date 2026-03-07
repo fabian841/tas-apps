@@ -1,0 +1,75 @@
+{
+  "name": "Agent Status Webhook",
+  "nodes": [
+    {
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 300],
+      "parameters": {
+        "path": "agent-status",
+        "httpMethod": "GET",
+        "responseMode": "lastNode"
+      }
+    },
+    {
+      "name": "Recent Sessions",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 150],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, agent_context, trigger_type, trigger_source, model, status, input_summary, output_summary, tools_called, started_at, completed_at, EXTRACT(EPOCH FROM (COALESCE(completed_at, NOW()) - started_at))::int AS duration_seconds FROM agent_sessions ORDER BY started_at DESC LIMIT 20;"
+      }
+    },
+    {
+      "name": "Session Stats",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 350],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT agent_context, COUNT(*) AS total_sessions, COUNT(*) FILTER (WHERE status = 'completed') AS completed, COUNT(*) FILTER (WHERE status = 'failed') AS failed, COUNT(*) FILTER (WHERE started_at > CURRENT_DATE) AS today FROM agent_sessions GROUP BY agent_context;"
+      }
+    },
+    {
+      "name": "Recent Findings",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 550],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, agent_context, finding_type, title, confidence, status, created_at FROM agent_findings ORDER BY created_at DESC LIMIT 15;"
+      }
+    },
+    {
+      "name": "Findings Stats",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 750],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT agent_context, COUNT(*) FILTER (WHERE status = 'PROPOSED') AS proposed, COUNT(*) FILTER (WHERE status = 'CONFIRMED') AS confirmed, COUNT(*) FILTER (WHERE status = 'REJECTED') AS rejected FROM agent_findings GROUP BY agent_context;"
+      }
+    },
+    {
+      "name": "MCP Server Health",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 950],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT server_name, layer, status, last_health_check FROM mcp_servers ORDER BY layer, server_name;"
+      }
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": { "main": [[
+      { "node": "Recent Sessions", "type": "main", "index": 0 },
+      { "node": "Session Stats", "type": "main", "index": 0 },
+      { "node": "Recent Findings", "type": "main", "index": 0 },
+      { "node": "Findings Stats", "type": "main", "index": 0 },
+      { "node": "MCP Server Health", "type": "main", "index": 0 }
+    ]] }
+  },
+  "settings": { "executionTimeout": 15 },
+  "meta": {
+    "phase": 3,
+    "owner": "Sam",
+    "description": "GET /webhook/agent-status — Returns agent session history, stats, recent findings, and MCP server health. Used by the Agent Monitor Glance page."
+  }
+}

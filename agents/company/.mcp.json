@@ -1,0 +1,45 @@
+{
+  "mcpServers": {
+    "postgres": {
+      "command": "npx",
+      "args": ["-y", "@anthropic/mcp-postgres", "postgresql://fabian_app:${APP_DB_PASSWORD}@localhost:5432/fabian_os"],
+      "env": {
+        "APP_DB_PASSWORD": "${APP_DB_PASSWORD}"
+      }
+    },
+    "zoho-crm": {
+      "command": "node",
+      "args": ["/opt/fabian-os/mcp-servers/zoho-crm/index.js"],
+      "env": {
+        "ZOHO_CLIENT_ID": "${ZOHO_CLIENT_ID}",
+        "ZOHO_CLIENT_SECRET": "${ZOHO_CLIENT_SECRET}",
+        "ZOHO_REFRESH_TOKEN": "${ZOHO_REFRESH_TOKEN}",
+        "ZOHO_ORG_ID": "${ZOHO_ORG_ID}"
+      }
+    },
+    "zoho-desk": {
+      "command": "node",
+      "args": ["/opt/fabian-os/mcp-servers/zoho-desk/index.js"],
+      "env": {
+        "ZOHO_CLIENT_ID": "${ZOHO_CLIENT_ID}",
+        "ZOHO_CLIENT_SECRET": "${ZOHO_CLIENT_SECRET}",
+        "ZOHO_REFRESH_TOKEN": "${ZOHO_REFRESH_TOKEN}",
+        "ZOHO_ORG_ID": "${ZOHO_ORG_ID}"
+      }
+    },
+    "zoho-books": {
+      "command": "node",
+      "args": ["/opt/fabian-os/mcp-servers/zoho-books/index.js"],
+      "env": {
+        "ZOHO_CLIENT_ID": "${ZOHO_CLIENT_ID}",
+        "ZOHO_CLIENT_SECRET": "${ZOHO_CLIENT_SECRET}",
+        "ZOHO_REFRESH_TOKEN": "${ZOHO_REFRESH_TOKEN}",
+        "ZOHO_ORG_ID": "${ZOHO_ORG_ID}"
+      }
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@anthropic/mcp-filesystem", "/opt/fabian-os/data"]
+    }
+  }
+}

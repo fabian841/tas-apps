@@ -35,3 +35,17 @@ All notable changes to LIFE OS are documented here.
 - Daily Flash: company intelligence surface in Glance — pipeline, revenue MTD, overdue invoices, support tickets, warranty status, deals closing this week.
 - Hard isolation boundary enforced: Daily Flash queries Company tables only.
 - Documentation: PB4000 doctrine, warranty engine, updated data ownership matrix.
+
+## Phase 3 — Automation & Agents (March 2026)
+
+- Architecture: Claude Code remote agents replace custom Clawdbot — native MCP, tool use, context.
+- Database: mcp_servers, agent_sessions, agent_findings tables (migration 07).
+- Two agent contexts: Personal (PIL) and Company (GPX), hard-isolated via separate CLAUDE.md and .mcp.json.
+- 3 Zoho MCP servers: zoho-crm (contacts, accounts, deals), zoho-desk (tickets), zoho-books (invoices).
+- MCP server registry with 7 servers seeded (postgres-personal, postgres-company, google-sheets, zoho-crm, zoho-desk, zoho-books, filesystem).
+- Personal agent: scheduled morning prep (6 AM), evening prep (5:30 PM), on-demand via POST /agent-personal.
+- Company agent: scheduled Daily Flash prep (7 AM weekdays), weekly pipeline review (Monday 8 AM), on-demand via POST /agent-company.
+- Agent findings follow same confidence gate as PIL: all output is PROPOSED, only Fabian confirms.
+- Agent Monitor: new Glance page with session history, findings stats, and MCP server health.
+- n8n webhooks: /agent-status, /agent-personal, /agent-company.
+- Documentation: agent architecture, MCP server setup, agent CLAUDE.md system prompts.

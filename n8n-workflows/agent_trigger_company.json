@@ -1,0 +1,114 @@
+{
+  "name": "Company Agent Trigger",
+  "nodes": [
+    {
+      "name": "Cron — Daily Flash Prep",
+      "type": "n8n-nodes-base.cron",
+      "position": [250, 200],
+      "parameters": {
+        "triggerTimes": {
+          "item": [{ "mode": "custom", "cronExpression": "0 7 * * 1-5" }]
+        }
+      },
+      "notes": "7 AM weekdays — runs company agent to prep Daily Flash insights."
+    },
+    {
+      "name": "Cron — Weekly Pipeline Review",
+      "type": "n8n-nodes-base.cron",
+      "position": [250, 400],
+      "parameters": {
+        "triggerTimes": {
+          "item": [{ "mode": "custom", "cronExpression": "0 8 * * 1" }]
+        }
+      },
+      "notes": "Monday 8 AM — weekly deal pipeline analysis."
+    },
+    {
+      "name": "Webhook — On Demand",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 600],
+      "parameters": {
+        "path": "agent-company",
+        "httpMethod": "POST",
+        "responseMode": "lastNode"
+      },
+      "notes": "POST {task: 'string'} — Fabian triggers company agent on demand."
+    },
+    {
+      "name": "Create Session Record",
+      "type": "n8n-nodes-base.postgres",
+      "position": [550, 400],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO agent_sessions (agent_context, trigger_type, trigger_source, model, mcp_servers_used, input_summary) VALUES ('company', $1, $2, 'claude-sonnet-4-6', ARRAY['postgres', 'zoho-crm', 'zoho-desk', 'zoho-books', 'filesystem'], $3) RETURNING id;"
+      }
+    },
+    {
+      "name": "Launch Claude Code Agent",
+      "type": "n8n-nodes-base.executeCommand",
+      "position": [800, 400],
+      "parameters": {
+        "command": "cd /opt/fabian-os/tas-apps/agents/company && claude --print --model claude-sonnet-4-6 --max-turns 25 \"$AGENT_TASK\" 2>&1 | tee /tmp/agent-company-$(date +%s).log"
+      },
+      "notes": "Launches Claude Code in the company agent directory with its CLAUDE.md and .mcp.json. MCP servers for Zoho CRM/Desk/Books + Postgres."
+    },
+    {
+      "name": "Parse Agent Output",
+      "type": "n8n-nodes-base.set",
+      "position": [1050, 400],
+      "parameters": {
+        "values": {
+          "string": [
+            { "name": "output", "value": "={{$json.stdout}}" },
+            { "name": "session_id", "value": "={{$node['Create Session Record'].json.id}}" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Complete Session",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1300, 400],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE agent_sessions SET status = 'completed', completed_at = NOW(), output_summary = $1 WHERE id = $2;"
+      }
+    },
+    {
+      "name": "Log Event",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1550, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO event_log (event_type, entity_type, source, metadata) VALUES ('AgentSessionCompleted', 'agent_session', 'company_agent', jsonb_build_object('session_id', $1, 'trigger', $2));"
+      }
+    },
+    {
+      "name": "Update Health Check",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1550, 500],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO health_checks (component, last_run, status, message) VALUES ('company_agent', NOW(), 'ok', $1) ON CONFLICT (component) DO UPDATE SET last_run = EXCLUDED.last_run, status = EXCLUDED.status, message = EXCLUDED.message;"
+      }
+    }
+  ],
+  "connections": {
+    "Cron — Daily Flash Prep": { "main": [[{ "node": "Create Session Record", "type": "main", "index": 0 }]] },
+    "Cron — Weekly Pipeline Review": { "main": [[{ "node": "Create Session Record", "type": "main", "index": 0 }]] },
+    "Webhook — On Demand": { "main": [[{ "node": "Create Session Record", "type": "main", "index": 0 }]] },
+    "Create Session Record": { "main": [[{ "node": "Launch Claude Code Agent", "type": "main", "index": 0 }]] },
+    "Launch Claude Code Agent": { "main": [[{ "node": "Parse Agent Output", "type": "main", "index": 0 }]] },
+    "Parse Agent Output": { "main": [[{ "node": "Complete Session", "type": "main", "index": 0 }]] },
+    "Complete Session": { "main": [[{ "node": "Log Event", "type": "main", "index": 0 }, { "node": "Update Health Check", "type": "main", "index": 0 }]] }
+  },
+  "settings": {
+    "executionTimeout": 300,
+    "maxTries": 1
+  },
+  "meta": {
+    "phase": 3,
+    "owner": "Sam",
+    "description": "Triggers Claude Code company agent (GPX layer) on schedule (Daily Flash prep weekdays 7 AM, weekly pipeline review Monday 8 AM) or on demand via POST /webhook/agent-company. Agent runs with MCP servers for Zoho CRM/Desk/Books, Postgres, and filesystem."
+  }
+}

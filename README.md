@@ -18,14 +18,23 @@ Two layers — Personal and Company — share infrastructure but never share dat
 ├── docker-compose.yml          # pgvector + n8n + Glance stack
 ├── migrations/                 # SQL migration files (run on first start)
 ├── n8n-workflows/              # Exported n8n workflow definitions
-├── glance/                     # Morning Pulse dashboard configuration
+├── glance/                     # Dashboard configuration (5 pages)
 ├── scripts/                    # Backup and utility scripts
+├── schemas/                    # PIL register + PB4000 doctrine schemas
+├── agents/
+│   ├── personal/               # Personal agent (CLAUDE.md + .mcp.json)
+│   └── company/                # Company agent (CLAUDE.md + .mcp.json)
+├── mcp-servers/
+│   ├── zoho-crm/               # Zoho CRM MCP server
+│   ├── zoho-desk/              # Zoho Desk MCP server
+│   └── zoho-books/             # Zoho Books MCP server
 ├── docs/
 │   ├── email_triage_sop.md     # Phase 0 email triage procedure
 │   ├── drive_structure.md      # Google Drive 12-folder structure
 │   ├── restore_procedure.md    # Disaster recovery procedure
 │   ├── workflow_owners.md      # Workflow ownership registry
 │   ├── changelog.md            # All changes logged here
+│   ├── agent_architecture.md   # Phase 3 agent design
 │   └── adr/                    # Architecture Decision Records
 └── .env.example                # Environment variables template
 ```
@@ -37,7 +46,7 @@ Two layers — Personal and Company — share infrastructure but never share dat
 | **0** | Core Foundation | 14 days | PLAUD pipeline, Morning Pulse, email triage habit, Drive structure |
 | **1** | Personal OS Live | 14 days | 8 registers, confidence gating, 4 daily touchpoints, PLAUD extraction |
 | **2** | Company OS (GPX) | 14 days | Zoho config, PB4000 doctrine, warranty engine, Daily Flash |
-| **3** | Automation & Agents | 30 days | Clawdbot personal + company, Zoho MCP |
+| **3** | Automation & Agents | 30 days | Claude Code agents (personal + company), Zoho MCP servers |
 | **4** | Governance | 28 days | Compliance agent, DR drills, change control |
 | **5** | Advanced Intelligence | 30 days (optional) | MemCP, claude-brain, Ghost |
 | **6** | Agent Swarm | 30 days/agent | Regulatory, tech scout, supplier risk, etc. |

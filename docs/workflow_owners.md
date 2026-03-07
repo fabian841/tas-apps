@@ -20,6 +20,12 @@ All workflows are owned by Sam until formally transitioned.
 | Warranty Register Webhook | Sam | On demand (API) | Phase 2 |
 | Warranty Claim Webhook | Sam | On demand (API) | Phase 2 |
 | Daily Flash Webhook | Sam | On demand (Glance) | Phase 2 |
+| Personal Agent Trigger | Sam | Daily 6 AM + 5:30 PM (cron) + on demand | Phase 3 |
+| Company Agent Trigger | Sam | Weekdays 7 AM + Monday 8 AM (cron) + on demand | Phase 3 |
+| Agent Status Webhook | Sam | On demand (Glance) | Phase 3 |
+| Zoho CRM MCP Server | Sam | Persistent (stdio) | Phase 3 |
+| Zoho Desk MCP Server | Sam | Persistent (stdio) | Phase 3 |
+| Zoho Books MCP Server | Sam | Persistent (stdio) | Phase 3 |
 
 ## Sam's Monitoring Responsibilities
 

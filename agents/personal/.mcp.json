@@ -1,0 +1,22 @@
+{
+  "mcpServers": {
+    "postgres": {
+      "command": "npx",
+      "args": ["-y", "@anthropic/mcp-postgres", "postgresql://fabian_app:${APP_DB_PASSWORD}@localhost:5432/fabian_os"],
+      "env": {
+        "APP_DB_PASSWORD": "${APP_DB_PASSWORD}"
+      }
+    },
+    "google-sheets": {
+      "command": "npx",
+      "args": ["-y", "@anthropic/mcp-google-sheets", "--credentials-path", "${GOOGLE_SHEETS_CREDENTIALS_PATH}"],
+      "env": {
+        "GOOGLE_SHEETS_CREDENTIALS_PATH": "${GOOGLE_SHEETS_CREDENTIALS_PATH}"
+      }
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@anthropic/mcp-filesystem", "/opt/fabian-os/data"]
+    }
+  }
+}
