@@ -2,14 +2,20 @@
 PHASE 4 — SCRIPT D: Delete Empty Folder Shells
 Find all folders that are now empty and move them to Google Trash.
 Verify workspace root contains exactly 18 folders.
+Logs EVERY deletion to File_Register + Change_Log.
 """
 import os
 import sys
+import time
 from dotenv import load_dotenv
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from lib.drive_client import (
     get_drive_service, list_files_in_folder, trash_file
+)
+from lib.audit_logger import (
+    log_file_register, log_change,
+    log_run_start, log_run_end, generate_run_id,
 )
 from config.folder_structure import TARGET_STRUCTURE
 
@@ -17,12 +23,6 @@ load_dotenv()
 
 WORKSPACE_FOLDER_ID = os.environ.get("WORKSPACE_FOLDER_ID", "1klBbAXcsqy0yYi_MAgLZJj_Pg7xEsCWm")
 TARGET_FOLDER_NAMES = set(TARGET_STRUCTURE.keys())
-
-
-def is_folder_empty(service, folder_id):
-    """Check if a folder is completely empty (no files, no subfolders)."""
-    contents = list_files_in_folder(service, folder_id)
-    return len(contents) == 0
 
 
 def is_folder_effectively_empty(service, folder_id):
@@ -35,7 +35,7 @@ def is_folder_effectively_empty(service, folder_id):
             if not is_folder_effectively_empty(service, item["id"]):
                 return False
         else:
-            return False  # Has a real file
+            return False
     return True
 
 
@@ -44,16 +44,18 @@ def run():
     print("PHASE 4 — SCRIPT D: DELETE EMPTY FOLDER SHELLS")
     print("=" * 60)
 
+    start_time = time.time()
+    run_id = generate_run_id("phase4d")
+    log_run_start(run_id, "phase4d")
+
     service = get_drive_service()
 
-    # List all items at workspace root
     root_items = list_files_in_folder(service, WORKSPACE_FOLDER_ID)
     folders = [f for f in root_items if f["mimeType"] == "application/vnd.google-apps.folder"]
 
     print(f"\n  Found {len(folders)} folders at workspace root.")
     print(f"  Target: {len(TARGET_FOLDER_NAMES)} folders.\n")
 
-    # Identify folders that are NOT in the target structure
     non_target = [f for f in folders if f["name"] not in TARGET_FOLDER_NAMES]
     target = [f for f in folders if f["name"] in TARGET_FOLDER_NAMES]
 
@@ -68,12 +70,34 @@ def run():
         if is_folder_effectively_empty(service, folder["id"]):
             print(f"    EMPTY — moving to Trash")
             trash_file(service, folder["id"])
+
+            log_file_register(
+                file_id=folder["id"], file_name=folder["name"],
+                file_type="folder", original_location="WORKSPACE ROOT",
+                new_location="TRASH", action="ARCHIVED",
+                version_notes="Empty folder shell trashed",
+                status="DELETED",
+            )
+            log_change(
+                file_id=folder["id"], file_name=folder["name"],
+                change_type="FOLDER_TRASHED",
+                before_state="WORKSPACE ROOT",
+                after_state="TRASH (empty folder shell)",
+                script_phase="phase4d", run_id=run_id,
+            )
             trashed_count += 1
         else:
             print(f"    NOT EMPTY — keeping (needs manual review)")
+            log_change(
+                file_id=folder["id"], file_name=folder["name"],
+                change_type="FOLDER_KEPT",
+                before_state="WORKSPACE ROOT",
+                after_state="KEPT (non-empty, needs review)",
+                script_phase="phase4d", run_id=run_id,
+            )
             kept_count += 1
 
-    # Also check for non-folder files at root level
+    # Check for loose files at root
     root_files = [f for f in root_items if f["mimeType"] != "application/vnd.google-apps.folder"]
     if root_files:
         print(f"\n  WARNING: {len(root_files)} loose file(s) at workspace root:")
@@ -90,13 +114,21 @@ def run():
         in_target = "OK" if f["name"] in TARGET_FOLDER_NAMES else "UNEXPECTED"
         print(f"    [{in_target}] {f['name']}")
 
-    if len(final_folders) == len(TARGET_FOLDER_NAMES):
+    duration = time.time() - start_time
+    ok = len(final_folders) == len(TARGET_FOLDER_NAMES)
+    log_run_end(
+        run_id, "phase4d",
+        files_processed=len(non_target),
+        files_archived=trashed_count, files_skipped=kept_count,
+        errors=0, duration_seconds=duration,
+        status="SUCCESS" if ok else "PARTIAL",
+        summary=f"Trashed {trashed_count} empty shells, kept {kept_count}. {len(final_folders)} folders at root.",
+    )
+
+    if ok:
         print(f"\nScript D COMPLETE. Exactly {len(TARGET_FOLDER_NAMES)} folders remain.")
     else:
         print(f"\nScript D WARNING: {len(final_folders)} folders remain, expected {len(TARGET_FOLDER_NAMES)}.")
-        if kept_count > 0:
-            print(f"  {kept_count} non-target folder(s) still have content — review manually.")
-
     print(f"  Trashed: {trashed_count}")
 
 

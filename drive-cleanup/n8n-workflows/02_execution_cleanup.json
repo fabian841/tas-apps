@@ -12,7 +12,7 @@
           ]
         }
       },
-      "id": "weekly-trigger",
+      "id": "trigger-weekly-sun-3am",
       "name": "Weekly Sunday 3AM",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
@@ -20,71 +20,107 @@
     },
     {
       "parameters": {
-        "jsCode": "// Configuration\nconst RETENTION_DAYS = 30;\nconst BATCH_SIZE = 100;\nconst BASE_URL = $env.N8N_BASE_URL;\n\nconst cutoffDate = new Date();\ncutoffDate.setDate(cutoffDate.getDate() - RETENTION_DAYS);\nconst cutoffISO = cutoffDate.toISOString();\n\nlet totalDeleted = 0;\nlet totalFailed = 0;\nlet totalKept = 0;\nlet hasMore = true;\nlet cursor = null;\n\nwhile (hasMore) {\n  // Fetch a batch of executions\n  let url = `${BASE_URL}/api/v1/executions?limit=${BATCH_SIZE}&status=success`;\n  if (cursor) url += `&cursor=${cursor}`;\n  \n  const listResp = await this.helpers.httpRequest({\n    method: 'GET',\n    url,\n    headers: { 'X-N8N-API-KEY': $env.N8N_API_KEY }\n  });\n  \n  const executions = listResp.data || [];\n  cursor = listResp.nextCursor;\n  hasMore = !!cursor && executions.length === BATCH_SIZE;\n  \n  // Filter old executions\n  const oldExecutions = executions.filter(ex => {\n    const finishedAt = new Date(ex.stoppedAt || ex.startedAt);\n    return finishedAt < cutoffDate;\n  });\n  \n  totalKept += executions.length - oldExecutions.length;\n  \n  // Delete old executions\n  for (const ex of oldExecutions) {\n    try {\n      await this.helpers.httpRequest({\n        method: 'DELETE',\n        url: `${BASE_URL}/api/v1/executions/${ex.id}`,\n        headers: { 'X-N8N-API-KEY': $env.N8N_API_KEY }\n      });\n      totalDeleted++;\n    } catch (err) {\n      totalFailed++;\n    }\n  }\n  \n  // Safety: stop after processing 2000 executions per run\n  if (totalDeleted + totalKept + totalFailed > 2000) break;\n}\n\n// Now handle failed executions older than retention\nhasMore = true;\ncursor = null;\n\nwhile (hasMore) {\n  let url = `${BASE_URL}/api/v1/executions?limit=${BATCH_SIZE}&status=error`;\n  if (cursor) url += `&cursor=${cursor}`;\n  \n  const listResp = await this.helpers.httpRequest({\n    method: 'GET',\n    url,\n    headers: { 'X-N8N-API-KEY': $env.N8N_API_KEY }\n  });\n  \n  const executions = listResp.data || [];\n  cursor = listResp.nextCursor;\n  hasMore = !!cursor && executions.length === BATCH_SIZE;\n  \n  const oldExecutions = executions.filter(ex => {\n    const finishedAt = new Date(ex.stoppedAt || ex.startedAt);\n    return finishedAt < cutoffDate;\n  });\n  \n  totalKept += executions.length - oldExecutions.length;\n  \n  for (const ex of oldExecutions) {\n    try {\n      await this.helpers.httpRequest({\n        method: 'DELETE',\n        url: `${BASE_URL}/api/v1/executions/${ex.id}`,\n        headers: { 'X-N8N-API-KEY': $env.N8N_API_KEY }\n      });\n      totalDeleted++;\n    } catch (err) {\n      totalFailed++;\n    }\n  }\n  \n  if (totalDeleted + totalKept + totalFailed > 4000) break;\n}\n\nreturn [{\n  json: {\n    totalDeleted,\n    totalFailed,\n    totalKept,\n    retentionDays: RETENTION_DAYS,\n    cutoffDate: cutoffISO,\n    runAt: new Date().toISOString()\n  }\n}];"
+        "jsCode": "// ╔══════════════════════════════════════════════════════╗\n// ║  CONFIGURATION — Edit these values to customise     ║\n// ╚══════════════════════════════════════════════════════╝\nconst CONFIG = {\n  // Delete executions older than this many days\n  RETENTION_DAYS: 30,\n\n  // Maximum executions to process per run (safety limit)\n  MAX_PER_RUN: 5000,\n\n  // Batch size for API pagination\n  BATCH_SIZE: 100,\n\n  // Email recipient for the cleanup report\n  EMAIL_RECIPIENT: 'fabian@fdnxt.com',\n\n  // Google Sheet ID for the central TAS_N8N_Audit sheet\n  SHEET_ID: $env.TAS_AUDIT_SHEET_ID || 'YOUR_GOOGLE_SHEET_ID_HERE',\n\n  // Tab name within the audit sheet\n  SHEET_TAB: 'Execution_Cleanup',\n\n  // Which execution statuses to clean up\n  STATUSES_TO_CLEAN: ['success', 'error'],\n\n  // Set to false for dry-run / report-only mode\n  AUTO_DELETE: true\n};\n\nreturn [{ json: CONFIG }];"
       },
-      "id": "cleanup-executions",
-      "name": "Delete Old Executions",
+      "id": "config",
+      "name": "⚙️ Configuration",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [220, 0]
     },
     {
       "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict"
-          },
-          "conditions": [
-            {
-              "id": "has-deletions",
-              "leftValue": "={{ $json.totalDeleted }}",
-              "rightValue": 0,
-              "operator": {
-                "type": "number",
-                "operation": "gt"
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
+        "jsCode": "const config = $('⚙️ Configuration').first().json;\nconst BASE_URL = $env.N8N_BASE_URL;\nconst API_KEY = $env.N8N_API_KEY;\n\nconst cutoffDate = new Date();\ncutoffDate.setDate(cutoffDate.getDate() - config.RETENTION_DAYS);\nconst cutoffISO = cutoffDate.toISOString();\n\nconst stats = {\n  totalScanned: 0,\n  totalDeleted: 0,\n  totalFailed: 0,\n  totalSkipped: 0,\n  byStatus: {},\n  byWorkflow: {},\n  errors: [],\n  oldestFound: null,\n  newestDeleted: null\n};\n\nfor (const status of config.STATUSES_TO_CLEAN) {\n  stats.byStatus[status] = { scanned: 0, deleted: 0, failed: 0 };\n  let hasMore = true;\n  let cursor = null;\n\n  while (hasMore && stats.totalScanned < config.MAX_PER_RUN) {\n    let url = `${BASE_URL}/api/v1/executions?limit=${config.BATCH_SIZE}&status=${status}`;\n    if (cursor) url += `&cursor=${cursor}`;\n\n    let listResp;\n    try {\n      listResp = await this.helpers.httpRequest({\n        method: 'GET',\n        url,\n        headers: { 'X-N8N-API-KEY': API_KEY }\n      });\n    } catch (err) {\n      stats.errors.push(`Failed to list ${status} executions: ${err.message}`);\n      break;\n    }\n\n    const executions = listResp.data || [];\n    cursor = listResp.nextCursor;\n    hasMore = !!cursor && executions.length === config.BATCH_SIZE;\n\n    for (const ex of executions) {\n      stats.totalScanned++;\n      stats.byStatus[status].scanned++;\n\n      const finishedAt = new Date(ex.stoppedAt || ex.startedAt);\n\n      // Track oldest execution found\n      if (!stats.oldestFound || finishedAt < new Date(stats.oldestFound)) {\n        stats.oldestFound = finishedAt.toISOString();\n      }\n\n      if (finishedAt >= cutoffDate) {\n        stats.totalSkipped++;\n        continue;\n      }\n\n      // Track by workflow\n      const wfName = ex.workflowData?.name || ex.workflowId || 'unknown';\n      if (!stats.byWorkflow[wfName]) stats.byWorkflow[wfName] = { deleted: 0, failed: 0 };\n\n      if (!config.AUTO_DELETE) {\n        stats.totalSkipped++;\n        continue;\n      }\n\n      try {\n        await this.helpers.httpRequest({\n          method: 'DELETE',\n          url: `${BASE_URL}/api/v1/executions/${ex.id}`,\n          headers: { 'X-N8N-API-KEY': API_KEY }\n        });\n        stats.totalDeleted++;\n        stats.byStatus[status].deleted++;\n        stats.byWorkflow[wfName].deleted++;\n\n        if (!stats.newestDeleted || finishedAt > new Date(stats.newestDeleted)) {\n          stats.newestDeleted = finishedAt.toISOString();\n        }\n      } catch (err) {\n        stats.totalFailed++;\n        stats.byStatus[status].failed++;\n        stats.byWorkflow[wfName].failed++;\n        stats.errors.push(`Delete ${ex.id}: ${err.message}`);\n      }\n    }\n  }\n}\n\nreturn [{\n  json: {\n    ...stats,\n    retentionDays: config.RETENTION_DAYS,\n    cutoffDate: cutoffISO,\n    dryRun: !config.AUTO_DELETE,\n    runAt: new Date().toISOString(),\n    emailRecipient: config.EMAIL_RECIPIENT,\n    sheetId: config.SHEET_ID,\n    topWorkflows: Object.entries(stats.byWorkflow)\n      .sort((a, b) => b[1].deleted - a[1].deleted)\n      .slice(0, 20)\n      .map(([name, counts]) => ({ name, ...counts }))\n  }\n}];"
       },
-      "id": "check-if-any",
-      "name": "Any Deleted?",
-      "type": "n8n-nodes-base.filter",
+      "id": "cleanup-executions",
+      "name": "Delete Old Executions",
+      "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [440, 0]
     },
     {
       "parameters": {
-        "sendTo": "={{ $env.GOOGLE_ACCOUNT || 'fabian@fdnxt.com' }}",
-        "subject": "TAS N8N: Cleaned up {{ $json.totalDeleted }} old executions",
-        "message": "=<h2>Execution Cleanup Report</h2>\n<p><strong>Run at:</strong> {{ $json.runAt }}</p>\n<p><strong>Retention policy:</strong> {{ $json.retentionDays }} days</p>\n<p><strong>Cutoff date:</strong> {{ $json.cutoffDate }}</p>\n<hr>\n<p><strong>Deleted:</strong> {{ $json.totalDeleted }}</p>\n<p><strong>Kept:</strong> {{ $json.totalKept }}</p>\n<p><strong>Failed to delete:</strong> {{ $json.totalFailed }}</p>",
+        "operation": "appendOrUpdate",
+        "documentId": { "__rl": true, "mode": "id", "value": "={{ $json.sheetId }}" },
+        "sheetName": { "__rl": true, "mode": "name", "value": "Execution_Cleanup" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Timestamp": "={{ $json.runAt }}",
+            "Retention Days": "={{ $json.retentionDays }}",
+            "Cutoff Date": "={{ $json.cutoffDate }}",
+            "Total Scanned": "={{ $json.totalScanned }}",
+            "Total Deleted": "={{ $json.totalDeleted }}",
+            "Total Failed": "={{ $json.totalFailed }}",
+            "Total Skipped": "={{ $json.totalSkipped }}",
+            "Success Deleted": "={{ $json.byStatus.success?.deleted || 0 }}",
+            "Error Deleted": "={{ $json.byStatus.error?.deleted || 0 }}",
+            "Dry Run": "={{ $json.dryRun }}",
+            "Oldest Found": "={{ $json.oldestFound }}",
+            "Newest Deleted": "={{ $json.newestDeleted }}",
+            "Errors": "={{ $json.errors.slice(0, 5).join(' | ') }}"
+          }
+        },
         "options": {}
       },
-      "id": "send-report",
-      "name": "Email Cleanup Report",
+      "id": "log-to-sheet",
+      "name": "Log to Audit Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [660, -120],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "google-sheets-cred",
+          "name": "Google Sheets OAuth2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const s = $('Delete Old Executions').first().json;\n\nconst workflowRows = s.topWorkflows.map(w =>\n  `<tr><td>${w.name}</td><td>${w.deleted}</td><td>${w.failed}</td></tr>`\n).join('');\n\nconst statusRows = Object.entries(s.byStatus).map(([status, counts]) =>\n  `<tr><td>${status}</td><td>${counts.scanned}</td><td>${counts.deleted}</td><td>${counts.failed}</td></tr>`\n).join('');\n\nconst errorSection = s.errors.length > 0\n  ? `<h3>⚠️ Errors (first 10)</h3><ul>${s.errors.slice(0, 10).map(e => '<li>' + e + '</li>').join('')}</ul>`\n  : '';\n\nconst html = `\n<h2>🧹 TAS Execution Cleanup Report</h2>\n<p><strong>Run:</strong> ${s.runAt}</p>\n<p><strong>Mode:</strong> ${s.dryRun ? '🔵 DRY RUN (no deletions)' : '🟢 LIVE'}</p>\n<p><strong>Retention:</strong> ${s.retentionDays} days (cutoff: ${s.cutoffDate})</p>\n<hr>\n<table style=\"border-collapse:collapse;width:100%\">\n<tr><th>Metric</th><th>Count</th></tr>\n<tr><td>Total scanned</td><td><strong>${s.totalScanned}</strong></td></tr>\n<tr><td>🗑️ Deleted</td><td><strong>${s.totalDeleted}</strong></td></tr>\n<tr><td>⏭️ Skipped (within retention)</td><td><strong>${s.totalSkipped}</strong></td></tr>\n<tr><td>❌ Failed</td><td><strong>${s.totalFailed}</strong></td></tr>\n</table>\n<hr>\n<h3>By Status</h3>\n<table border=\"1\" cellpadding=\"6\" style=\"border-collapse:collapse;width:100%\">\n<tr><th>Status</th><th>Scanned</th><th>Deleted</th><th>Failed</th></tr>\n${statusRows}\n</table>\n<hr>\n<h3>Top Workflows by Deletions</h3>\n<table border=\"1\" cellpadding=\"6\" style=\"border-collapse:collapse;width:100%\">\n<tr><th>Workflow</th><th>Deleted</th><th>Failed</th></tr>\n${workflowRows || '<tr><td colspan=\"3\">No deletions this run</td></tr>'}\n</table>\n${errorSection}\n<hr>\n<p><em>Full audit trail logged to Google Sheet: TAS_N8N_Audit → Execution_Cleanup</em></p>\n`;\n\nreturn [{ json: { html, recipient: s.emailRecipient, subject: `TAS N8N Audit: ${s.totalDeleted} executions cleaned, ${s.totalScanned} scanned` } }];"
+      },
+      "id": "build-email",
+      "name": "Build Email Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 120]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.recipient }}",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.html }}",
+        "options": {}
+      },
+      "id": "send-email",
+      "name": "Send Email Report",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
-      "position": [660, 0]
+      "position": [880, 120]
     }
   ],
   "connections": {
     "Weekly Sunday 3AM": {
+      "main": [
+        [{ "node": "⚙️ Configuration", "type": "main", "index": 0 }]
+      ]
+    },
+    "⚙️ Configuration": {
       "main": [
         [{ "node": "Delete Old Executions", "type": "main", "index": 0 }]
       ]
     },
     "Delete Old Executions": {
       "main": [
-        [{ "node": "Any Deleted?", "type": "main", "index": 0 }]
+        [
+          { "node": "Log to Audit Sheet", "type": "main", "index": 0 },
+          { "node": "Build Email Report", "type": "main", "index": 0 }
+        ]
       ]
     },
-    "Any Deleted?": {
+    "Build Email Report": {
       "main": [
-        [{ "node": "Email Cleanup Report", "type": "main", "index": 0 }]
+        [{ "node": "Send Email Report", "type": "main", "index": 0 }]
       ]
     }
   },
@@ -94,6 +130,6 @@
   "tags": [
     { "name": "TAS" },
     { "name": "maintenance" },
-    { "name": "drive-cleanup" }
+    { "name": "audit" }
   ]
 }
