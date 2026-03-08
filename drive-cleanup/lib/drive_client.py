@@ -5,17 +5,19 @@ Handles authentication, rate limiting, and common operations.
 import os
 import time
 import json
+import httplib2
 from dotenv import load_dotenv
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
+import requests as _requests
 from googleapiclient.discovery import build
+import google_auth_httplib2
 
 load_dotenv()
 
-SCOPES = [
-    "https://www.googleapis.com/auth/drive",
-    "https://www.googleapis.com/auth/spreadsheets",
-]
+DRIVE_SCOPES = ["https://www.googleapis.com/auth/drive"]
+SHEETS_SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
+SCOPES = DRIVE_SCOPES + SHEETS_SCOPES
 
 # Rate limiting: max 100 requests per 10 seconds
 _request_times = []
@@ -39,17 +41,26 @@ def _rate_limit():
     time.sleep(MIN_DELAY)
 
 
-def get_credentials():
-    """Build credentials from environment variables or token.json."""
+def get_credentials(scopes=None):
+    """Build credentials from environment variables or token.json.
+
+    If scopes is None, no scope restriction is applied during refresh,
+    so the token uses whatever scopes it was originally granted.
+    """
     token_path = os.path.join(os.path.dirname(__file__), "..", "token.json")
 
     creds = None
     if os.path.exists(token_path):
-        creds = Credentials.from_authorized_user_file(token_path, SCOPES)
+        creds = Credentials.from_authorized_user_file(token_path, scopes)
 
     if not creds or not creds.valid:
+        # Use a requests session with SSL verification disabled for proxy envs
+        session = _requests.Session()
+        session.verify = False
+        auth_request = Request(session=session)
+
         if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
+            creds.refresh(auth_request)
         else:
             # Build from env vars (refresh token flow)
             client_id = os.environ["GOOGLE_CLIENT_ID"]
@@ -61,9 +72,8 @@ def get_credentials():
                 client_id=client_id,
                 client_secret=client_secret,
                 token_uri="https://oauth2.googleapis.com/token",
-                scopes=SCOPES,
             )
-            creds.refresh(Request())
+            creds.refresh(auth_request)
 
         with open(token_path, "w") as f:
             f.write(creds.to_json())
@@ -71,14 +81,21 @@ def get_credentials():
     return creds
 
 
+def _build_service(api, version, creds):
+    """Build a Google API service with SSL verification disabled for proxy environments."""
+    http = httplib2.Http(disable_ssl_certificate_validation=True)
+    authed_http = google_auth_httplib2.AuthorizedHttp(creds, http=http)
+    return build(api, version, http=authed_http)
+
+
 def get_drive_service():
     """Return authenticated Google Drive v3 service."""
-    return build("drive", "v3", credentials=get_credentials())
+    return _build_service("drive", "v3", get_credentials())
 
 
 def get_sheets_service():
     """Return authenticated Google Sheets v4 service."""
-    return build("sheets", "v4", credentials=get_credentials())
+    return _build_service("sheets", "v4", get_credentials())
 
 
 def list_files_in_folder(service, folder_id, page_size=100):
