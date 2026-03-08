@@ -1,0 +1,144 @@
+{
+  "name": "TAS — Workflow Organiser (Tags & Folders)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "Run Manually",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.N8N_BASE_URL }}/api/v1/workflows",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "fetch-all-workflows",
+      "name": "Fetch All Workflows",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [220, 0],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "n8n-api-key",
+          "name": "n8n API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Tag rules: map workflow name patterns to tags\n// Adjust these to match your naming conventions\nconst TAG_RULES = [\n  { pattern: /drive|gdrive|google.?drive/i, tag: 'google-drive' },\n  { pattern: /sheet|spreadsheet/i, tag: 'google-sheets' },\n  { pattern: /email|gmail|mail/i, tag: 'email' },\n  { pattern: /slack/i, tag: 'slack' },\n  { pattern: /zoho/i, tag: 'zoho' },\n  { pattern: /webhook/i, tag: 'webhook' },\n  { pattern: /cron|schedule|daily|weekly|hourly/i, tag: 'scheduled' },\n  { pattern: /backup|sync|mirror/i, tag: 'backup' },\n  { pattern: /test|debug|dev/i, tag: 'testing' },\n  { pattern: /client|customer|crm/i, tag: 'clients' },\n  { pattern: /invoice|billing|payment/i, tag: 'finance' },\n  { pattern: /report|analytics|dashboard/i, tag: 'reporting' },\n  { pattern: /n8n|cleanup|maintain/i, tag: 'maintenance' },\n  { pattern: /tas|fdnxt/i, tag: 'TAS' },\n];\n\n// Folder rules: group workflows into logical folders\nconst FOLDER_RULES = [\n  { pattern: /drive|gdrive|sheet|spreadsheet|google/i, folder: 'Google Workspace' },\n  { pattern: /email|gmail|slack|communication/i, folder: 'Communications' },\n  { pattern: /zoho|crm|client|customer/i, folder: 'CRM' },\n  { pattern: /invoice|billing|payment|finance/i, folder: 'Finance' },\n  { pattern: /backup|sync|mirror/i, folder: 'Sync & Backup' },\n  { pattern: /test|debug|dev|experiment/i, folder: 'Development' },\n  { pattern: /report|analytics|dashboard/i, folder: 'Reporting' },\n  { pattern: /n8n|cleanup|maintain|cron|schedule/i, folder: 'System & Maintenance' },\n];\n\nconst workflows = $input.first().json.data || [];\nconst results = [];\n\nfor (const wf of workflows) {\n  const matchedTags = [];\n  let matchedFolder = 'Uncategorised';\n  \n  // Match tags\n  for (const rule of TAG_RULES) {\n    if (rule.pattern.test(wf.name)) {\n      matchedTags.push(rule.tag);\n    }\n  }\n  \n  // Match folder (first match wins)\n  for (const rule of FOLDER_RULES) {\n    if (rule.pattern.test(wf.name)) {\n      matchedFolder = rule.folder;\n      break;\n    }\n  }\n  \n  // Check existing tags\n  const existingTags = (wf.tags || []).map(t => t.name);\n  const newTags = matchedTags.filter(t => !existingTags.includes(t));\n  \n  results.push({\n    id: wf.id,\n    name: wf.name,\n    active: wf.active,\n    existingTags,\n    newTags,\n    allTags: [...new Set([...existingTags, ...matchedTags])],\n    folder: matchedFolder,\n    needsUpdate: newTags.length > 0\n  });\n}\n\nreturn results.map(r => ({ json: r }));"
+      },
+      "id": "classify-workflows",
+      "name": "Classify by Tags & Folders",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "needs-update",
+              "leftValue": "={{ $json.needsUpdate }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "filter-needs-tags",
+      "name": "Needs New Tags?",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [660, -120]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Ensure tags exist in n8n, then apply to workflow\nconst BASE_URL = $env.N8N_BASE_URL;\nconst API_KEY = $env.N8N_API_KEY;\nconst wf = $input.first().json;\n\n// Step 1: Get all existing tags\nconst tagsResp = await this.helpers.httpRequest({\n  method: 'GET',\n  url: `${BASE_URL}/api/v1/tags`,\n  headers: { 'X-N8N-API-KEY': API_KEY }\n});\nconst existingTags = tagsResp.data || tagsResp || [];\nconst tagMap = {};\nfor (const t of existingTags) {\n  tagMap[t.name] = t.id;\n}\n\n// Step 2: Create any missing tags\nfor (const tagName of wf.newTags) {\n  if (!tagMap[tagName]) {\n    try {\n      const created = await this.helpers.httpRequest({\n        method: 'POST',\n        url: `${BASE_URL}/api/v1/tags`,\n        headers: { 'X-N8N-API-KEY': API_KEY, 'Content-Type': 'application/json' },\n        body: { name: tagName }\n      });\n      tagMap[tagName] = created.id;\n    } catch (err) {\n      // Tag might already exist\n    }\n  }\n}\n\n// Step 3: Update workflow with all tags\nconst tagIds = wf.allTags.map(t => tagMap[t]).filter(Boolean);\ntry {\n  await this.helpers.httpRequest({\n    method: 'PATCH',\n    url: `${BASE_URL}/api/v1/workflows/${wf.id}`,\n    headers: { 'X-N8N-API-KEY': API_KEY, 'Content-Type': 'application/json' },\n    body: { tags: tagIds.map(id => ({ id })) }\n  });\n} catch (err) {\n  return [{ json: { ...wf, tagUpdateStatus: 'FAILED', error: err.message } }];\n}\n\nreturn [{ json: { ...wf, tagUpdateStatus: 'OK', appliedTags: wf.allTags } }];"
+      },
+      "id": "apply-tags",
+      "name": "Create & Apply Tags",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [880, -120]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build a summary report of all workflows grouped by folder\nconst items = $input.all();\nconst folders = {};\n\nfor (const item of items) {\n  const wf = item.json;\n  const folder = wf.folder || 'Uncategorised';\n  if (!folders[folder]) folders[folder] = [];\n  folders[folder].push({\n    name: wf.name,\n    id: wf.id,\n    active: wf.active,\n    tags: wf.allTags || wf.existingTags || [],\n    needsUpdate: wf.needsUpdate\n  });\n}\n\nconst folderSummary = Object.entries(folders).map(([name, workflows]) => ({\n  folder: name,\n  count: workflows.length,\n  workflows\n})).sort((a, b) => b.count - a.count);\n\nreturn [{\n  json: {\n    totalWorkflows: items.length,\n    totalFolders: folderSummary.length,\n    taggedCount: items.filter(i => i.json.needsUpdate).length,\n    folders: folderSummary,\n    runAt: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "build-folder-report",
+      "name": "Build Folder Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 120]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $env.GOOGLE_ACCOUNT || 'fabian@fdnxt.com' }}",
+        "subject": "TAS N8N: Workflow Organisation Report — {{ $json.totalWorkflows }} workflows in {{ $json.totalFolders }} folders",
+        "message": "=<h2>Workflow Organisation Report</h2>\n<p><strong>Run at:</strong> {{ $json.runAt }}</p>\n<p><strong>Total workflows:</strong> {{ $json.totalWorkflows }}</p>\n<p><strong>Logical folders:</strong> {{ $json.totalFolders }}</p>\n<p><strong>Newly tagged:</strong> {{ $json.taggedCount }}</p>\n<hr>\n{{ $json.folders.map(f => '<h3>' + f.folder + ' (' + f.count + ')</h3><ul>' + f.workflows.map(w => '<li>' + (w.active ? '&#9989;' : '&#10060;') + ' ' + w.name + ' [' + w.tags.join(', ') + ']</li>').join('') + '</ul>').join('') }}\n<hr>\n<p><em>Use these folder groupings to organise workflows in N8N manually, or create actual N8N folders matching these names.</em></p>",
+        "options": {}
+      },
+      "id": "send-org-report",
+      "name": "Email Organisation Report",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [880, 120]
+    }
+  ],
+  "connections": {
+    "Run Manually": {
+      "main": [
+        [{ "node": "Fetch All Workflows", "type": "main", "index": 0 }]
+      ]
+    },
+    "Fetch All Workflows": {
+      "main": [
+        [{ "node": "Classify by Tags & Folders", "type": "main", "index": 0 }]
+      ]
+    },
+    "Classify by Tags & Folders": {
+      "main": [
+        [
+          { "node": "Needs New Tags?", "type": "main", "index": 0 },
+          { "node": "Build Folder Report", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Needs New Tags?": {
+      "main": [
+        [{ "node": "Create & Apply Tags", "type": "main", "index": 0 }]
+      ]
+    },
+    "Build Folder Report": {
+      "main": [
+        [{ "node": "Email Organisation Report", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    { "name": "TAS" },
+    { "name": "maintenance" },
+    { "name": "drive-cleanup" }
+  ]
+}
