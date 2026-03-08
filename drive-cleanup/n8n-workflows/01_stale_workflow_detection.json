@@ -6,17 +6,27 @@
         "rule": {
           "interval": [
             {
-              "field": "hours",
-              "hoursInterval": 24
+              "field": "cronExpression",
+              "expression": "0 6 * * *"
             }
           ]
         }
       },
-      "id": "schedule-trigger",
-      "name": "Daily Check",
+      "id": "trigger-daily-6am",
+      "name": "Daily 6AM",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ╔══════════════════════════════════════════════════════╗\n// ║  CONFIGURATION — Edit these values to customise     ║\n// ╚══════════════════════════════════════════════════════╝\nconst CONFIG = {\n  // Workflows not updated in this many days are considered stale\n  STALE_DAYS: 90,\n\n  // Email recipient for the summary report\n  EMAIL_RECIPIENT: 'fabian@fdnxt.com',\n\n  // Google Sheet ID for the central TAS_N8N_Audit sheet\n  // Create one sheet, share with your n8n service account, paste ID here\n  SHEET_ID: $env.TAS_AUDIT_SHEET_ID || 'YOUR_GOOGLE_SHEET_ID_HERE',\n\n  // Tab name within the audit sheet\n  SHEET_TAB: 'Stale_Workflows',\n\n  // Set to true to actually deactivate stale workflows\n  // Set to false for dry-run / report-only mode\n  AUTO_DEACTIVATE: true,\n\n  // Workflow name patterns to NEVER deactivate (regex strings)\n  PROTECTED_PATTERNS: [\n    'TAS.*Audit',\n    'TAS.*Stale',\n    'TAS.*Cleanup',\n    'TAS.*Organiser',\n    'Critical',\n    'Production'\n  ]\n};\n\nreturn [{ json: CONFIG }];"
+      },
+      "id": "config",
+      "name": "⚙️ Configuration",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 0]
     },
     {
       "parameters": {
@@ -30,7 +40,7 @@
       "name": "Fetch All Workflows",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [220, 0],
+      "position": [440, 0],
       "credentials": {
         "httpHeaderAuth": {
           "id": "n8n-api-key",
@@ -40,87 +50,49 @@
     },
     {
       "parameters": {
-        "jsCode": "const workflows = $input.first().json.data || [];\nconst now = new Date();\nconst STALE_DAYS = 90;\n\nconst results = workflows.map(wf => {\n  const updatedAt = new Date(wf.updatedAt);\n  const daysSinceUpdate = Math.floor((now - updatedAt) / (1000 * 60 * 60 * 24));\n  const isStale = daysSinceUpdate > STALE_DAYS;\n  \n  return {\n    id: wf.id,\n    name: wf.name,\n    active: wf.active,\n    updatedAt: wf.updatedAt,\n    daysSinceUpdate,\n    isStale,\n    status: isStale ? (wf.active ? 'STALE_ACTIVE' : 'STALE_INACTIVE') : 'OK'\n  };\n});\n\nreturn results.map(r => ({ json: r }));"
+        "jsCode": "const config = $('⚙️ Configuration').first().json;\nconst workflows = $input.first().json.data || [];\nconst now = new Date();\nconst protectedPatterns = config.PROTECTED_PATTERNS.map(p => new RegExp(p, 'i'));\n\nconst results = [];\n\nfor (const wf of workflows) {\n  const updatedAt = new Date(wf.updatedAt);\n  const createdAt = new Date(wf.createdAt);\n  const daysSinceUpdate = Math.floor((now - updatedAt) / (1000 * 60 * 60 * 24));\n  const daysSinceCreated = Math.floor((now - createdAt) / (1000 * 60 * 60 * 24));\n  const isStale = daysSinceUpdate > config.STALE_DAYS;\n  const isProtected = protectedPatterns.some(p => p.test(wf.name));\n  const tagNames = (wf.tags || []).map(t => t.name).join(', ');\n\n  let action = 'NONE';\n  let reason = '';\n\n  if (isStale && wf.active && !isProtected && config.AUTO_DEACTIVATE) {\n    action = 'DEACTIVATE';\n    reason = `Active but untouched for ${daysSinceUpdate} days`;\n  } else if (isStale && wf.active && isProtected) {\n    action = 'PROTECTED_SKIP';\n    reason = `Stale but matches protected pattern — skipped`;\n  } else if (isStale && !wf.active) {\n    action = 'FLAG_INACTIVE';\n    reason = `Already inactive, untouched ${daysSinceUpdate} days — candidate for deletion`;\n  } else {\n    action = 'OK';\n    reason = 'Within retention window';\n  }\n\n  results.push({\n    workflowId: wf.id,\n    workflowName: wf.name,\n    active: wf.active,\n    tags: tagNames,\n    createdAt: wf.createdAt,\n    updatedAt: wf.updatedAt,\n    daysSinceUpdate,\n    daysSinceCreated,\n    isStale,\n    isProtected,\n    action,\n    reason,\n    timestamp: now.toISOString()\n  });\n}\n\n// Sort: actionable items first\nresults.sort((a, b) => {\n  const order = { DEACTIVATE: 0, PROTECTED_SKIP: 1, FLAG_INACTIVE: 2, OK: 3 };\n  return (order[a.action] || 99) - (order[b.action] || 99);\n});\n\nreturn results.map(r => ({ json: r }));"
       },
-      "id": "classify-staleness",
-      "name": "Classify Staleness",
+      "id": "analyse-staleness",
+      "name": "Analyse Staleness",
       "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [440, 0]
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict"
-          },
-          "conditions": [
-            {
-              "id": "stale-check",
-              "leftValue": "={{ $json.isStale }}",
-              "rightValue": true,
-              "operator": {
-                "type": "boolean",
-                "operation": "equals",
-                "singleValue": true
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      },
-      "id": "filter-stale",
-      "name": "Filter Stale Only",
-      "type": "n8n-nodes-base.filter",
       "typeVersion": 2,
       "position": [660, 0]
     },
     {
       "parameters": {
         "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict"
-          },
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
           "conditions": [
             {
-              "id": "active-check",
-              "leftValue": "={{ $json.active }}",
-              "rightValue": true,
-              "operator": {
-                "type": "boolean",
-                "operation": "equals",
-                "singleValue": true
-              }
+              "id": "deactivate-check",
+              "leftValue": "={{ $json.action }}",
+              "rightValue": "DEACTIVATE",
+              "operator": { "type": "string", "operation": "equals" }
             }
           ],
           "combinator": "and"
         },
         "options": {}
       },
-      "id": "filter-active-stale",
-      "name": "Stale & Active?",
+      "id": "filter-deactivate",
+      "name": "Needs Deactivation?",
       "type": "n8n-nodes-base.filter",
       "typeVersion": 2,
-      "position": [880, -120]
+      "position": [880, -140]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.N8N_BASE_URL }}/api/v1/workflows/{{ $json.id }}/deactivate",
+        "url": "={{ $env.N8N_BASE_URL }}/api/v1/workflows/{{ $json.workflowId }}/deactivate",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "options": {}
       },
       "id": "deactivate-workflow",
-      "name": "Deactivate Stale Workflow",
+      "name": "Deactivate Workflow",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1100, -120],
+      "position": [1100, -140],
       "credentials": {
         "httpHeaderAuth": {
           "id": "n8n-api-key",
@@ -130,60 +102,122 @@
     },
     {
       "parameters": {
-        "jsCode": "const items = $input.all();\n\nconst summary = {\n  totalStale: items.length,\n  staleActive: items.filter(i => i.json.status === 'STALE_ACTIVE').length,\n  staleInactive: items.filter(i => i.json.status === 'STALE_INACTIVE').length,\n  workflows: items.map(i => ({\n    name: i.json.name,\n    id: i.json.id,\n    daysSinceUpdate: i.json.daysSinceUpdate,\n    status: i.json.status\n  }))\n};\n\nreturn [{ json: summary }];"
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "stale-check",
+              "leftValue": "={{ $json.isStale }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "equals", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
       },
-      "id": "build-report",
-      "name": "Build Report",
-      "type": "n8n-nodes-base.code",
+      "id": "filter-stale-for-sheet",
+      "name": "Filter Stale for Audit",
+      "type": "n8n-nodes-base.filter",
       "typeVersion": 2,
-      "position": [880, 120]
+      "position": [880, 0]
     },
     {
       "parameters": {
-        "sendTo": "={{ $env.GOOGLE_ACCOUNT || 'fabian@fdnxt.com' }}",
-        "subject": "TAS N8N: {{ $json.totalStale }} stale workflow(s) detected",
-        "message": "=<h2>Stale Workflow Report</h2>\n<p><strong>Total stale (>90 days):</strong> {{ $json.totalStale }}</p>\n<p><strong>Were active (now deactivated):</strong> {{ $json.staleActive }}</p>\n<p><strong>Already inactive:</strong> {{ $json.staleInactive }}</p>\n<h3>Details:</h3>\n<table border=\"1\" cellpadding=\"5\">\n<tr><th>Name</th><th>ID</th><th>Days Since Update</th><th>Status</th></tr>\n{{ $json.workflows.map(w => '<tr><td>' + w.name + '</td><td>' + w.id + '</td><td>' + w.daysSinceUpdate + '</td><td>' + w.status + '</td></tr>').join('') }}\n</table>\n<p><em>Review in N8N and delete if no longer needed.</em></p>",
+        "operation": "appendOrUpdate",
+        "documentId": { "__rl": true, "mode": "id", "value": "={{ $('⚙️ Configuration').first().json.SHEET_ID }}" },
+        "sheetName": { "__rl": true, "mode": "name", "value": "Stale_Workflows" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Timestamp": "={{ $json.timestamp }}",
+            "Workflow ID": "={{ $json.workflowId }}",
+            "Workflow Name": "={{ $json.workflowName }}",
+            "Active": "={{ $json.active }}",
+            "Tags": "={{ $json.tags }}",
+            "Days Since Update": "={{ $json.daysSinceUpdate }}",
+            "Days Since Created": "={{ $json.daysSinceCreated }}",
+            "Action": "={{ $json.action }}",
+            "Reason": "={{ $json.reason }}",
+            "Protected": "={{ $json.isProtected }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "log-to-sheet",
+      "name": "Log to Audit Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [1100, 0],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "google-sheets-cred",
+          "name": "Google Sheets OAuth2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const allItems = $('Analyse Staleness').all();\nconst config = $('⚙️ Configuration').first().json;\n\nconst deactivated = allItems.filter(i => i.json.action === 'DEACTIVATE');\nconst protectedSkipped = allItems.filter(i => i.json.action === 'PROTECTED_SKIP');\nconst flaggedInactive = allItems.filter(i => i.json.action === 'FLAG_INACTIVE');\nconst ok = allItems.filter(i => i.json.action === 'OK');\n\nconst tableRows = allItems\n  .filter(i => i.json.isStale)\n  .map(i => {\n    const w = i.json;\n    const badge = w.action === 'DEACTIVATE' ? '🔴 DEACTIVATED'\n      : w.action === 'PROTECTED_SKIP' ? '🛡️ PROTECTED'\n      : w.action === 'FLAG_INACTIVE' ? '⚠️ INACTIVE/STALE'\n      : '✅ OK';\n    return `<tr><td>${w.workflowName}</td><td>${w.workflowId}</td><td>${w.daysSinceUpdate}d</td><td>${w.tags || 'none'}</td><td>${badge}</td><td>${w.reason}</td></tr>`;\n  }).join('');\n\nconst html = `\n<h2>🔍 TAS Stale Workflow Report</h2>\n<p><strong>Run:</strong> ${new Date().toISOString()}</p>\n<p><strong>Threshold:</strong> ${config.STALE_DAYS} days</p>\n<hr>\n<table style=\"border-collapse:collapse;width:100%\">\n<tr><th>Metric</th><th>Count</th></tr>\n<tr><td>Total workflows scanned</td><td><strong>${allItems.length}</strong></td></tr>\n<tr><td>🔴 Deactivated this run</td><td><strong>${deactivated.length}</strong></td></tr>\n<tr><td>🛡️ Protected (skipped)</td><td><strong>${protectedSkipped.length}</strong></td></tr>\n<tr><td>⚠️ Flagged inactive/stale</td><td><strong>${flaggedInactive.length}</strong></td></tr>\n<tr><td>✅ Healthy</td><td><strong>${ok.length}</strong></td></tr>\n</table>\n<hr>\n<h3>Stale Workflow Details</h3>\n<table style=\"border-collapse:collapse;width:100%\" border=\"1\" cellpadding=\"6\">\n<tr><th>Name</th><th>ID</th><th>Age</th><th>Tags</th><th>Action</th><th>Reason</th></tr>\n${tableRows || '<tr><td colspan=\"6\">No stale workflows found 🎉</td></tr>'}\n</table>\n<hr>\n<p><em>Full audit trail logged to Google Sheet: TAS_N8N_Audit → Stale_Workflows</em></p>\n`;\n\nreturn [{ json: { html, recipient: config.EMAIL_RECIPIENT, subject: `TAS N8N Audit: ${deactivated.length} deactivated, ${flaggedInactive.length} flagged — ${allItems.length} scanned` } }];"
+      },
+      "id": "build-email",
+      "name": "Build Email Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [880, 160]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.recipient }}",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.html }}",
         "options": {}
       },
       "id": "send-email",
-      "name": "Email Report",
+      "name": "Send Email Report",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
-      "position": [1100, 120]
+      "position": [1100, 160]
     }
   ],
   "connections": {
-    "Daily Check": {
+    "Daily 6AM": {
+      "main": [
+        [{ "node": "⚙️ Configuration", "type": "main", "index": 0 }]
+      ]
+    },
+    "⚙️ Configuration": {
       "main": [
         [{ "node": "Fetch All Workflows", "type": "main", "index": 0 }]
       ]
     },
     "Fetch All Workflows": {
       "main": [
-        [{ "node": "Classify Staleness", "type": "main", "index": 0 }]
+        [{ "node": "Analyse Staleness", "type": "main", "index": 0 }]
       ]
     },
-    "Classify Staleness": {
-      "main": [
-        [{ "node": "Filter Stale Only", "type": "main", "index": 0 }]
-      ]
-    },
-    "Filter Stale Only": {
+    "Analyse Staleness": {
       "main": [
         [
-          { "node": "Stale & Active?", "type": "main", "index": 0 },
-          { "node": "Build Report", "type": "main", "index": 0 }
+          { "node": "Needs Deactivation?", "type": "main", "index": 0 },
+          { "node": "Filter Stale for Audit", "type": "main", "index": 0 },
+          { "node": "Build Email Report", "type": "main", "index": 0 }
         ]
       ]
     },
-    "Stale & Active?": {
+    "Needs Deactivation?": {
       "main": [
-        [{ "node": "Deactivate Stale Workflow", "type": "main", "index": 0 }]
+        [{ "node": "Deactivate Workflow", "type": "main", "index": 0 }]
       ]
     },
-    "Build Report": {
+    "Filter Stale for Audit": {
       "main": [
-        [{ "node": "Email Report", "type": "main", "index": 0 }]
+        [{ "node": "Log to Audit Sheet", "type": "main", "index": 0 }]
+      ]
+    },
+    "Build Email Report": {
+      "main": [
+        [{ "node": "Send Email Report", "type": "main", "index": 0 }]
       ]
     }
   },
@@ -193,6 +227,6 @@
   "tags": [
     { "name": "TAS" },
     { "name": "maintenance" },
-    { "name": "drive-cleanup" }
+    { "name": "audit" }
   ]
 }

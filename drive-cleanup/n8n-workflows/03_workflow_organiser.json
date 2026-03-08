@@ -2,12 +2,31 @@
   "name": "TAS — Workflow Organiser (Tags & Folders)",
   "nodes": [
     {
-      "parameters": {},
-      "id": "manual-trigger",
-      "name": "Run Manually",
-      "type": "n8n-nodes-base.manualTrigger",
-      "typeVersion": 1,
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 7 * * 1"
+            }
+          ]
+        }
+      },
+      "id": "trigger-weekly-mon-7am",
+      "name": "Weekly Monday 7AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
       "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ╔══════════════════════════════════════════════════════════╗\n// ║  CONFIGURATION — Edit these values to customise         ║\n// ╚══════════════════════════════════════════════════════════╝\nconst CONFIG = {\n  // Email recipient for the organisation report\n  EMAIL_RECIPIENT: 'fabian@fdnxt.com',\n\n  // Google Sheet ID for the central TAS_N8N_Audit sheet\n  SHEET_ID: $env.TAS_AUDIT_SHEET_ID || 'YOUR_GOOGLE_SHEET_ID_HERE',\n\n  // Tab name within the audit sheet\n  SHEET_TAB: 'Workflow_Organisation',\n\n  // Set to true to actually apply tags via API\n  // Set to false for report-only mode\n  AUTO_APPLY_TAGS: true,\n\n  // ── TAG RULES ──────────────────────────────────────────\n  // Each rule: { pattern: 'regex string', tag: 'tag-name', priority: number }\n  // Higher priority = applied first. All matching tags are applied.\n  TAG_RULES: [\n    // Platform tags\n    { pattern: 'drive|gdrive|google.?drive', tag: 'google-drive', priority: 10 },\n    { pattern: 'sheet|spreadsheet', tag: 'google-sheets', priority: 10 },\n    { pattern: 'email|gmail|mail', tag: 'email', priority: 10 },\n    { pattern: 'slack', tag: 'slack', priority: 10 },\n    { pattern: 'zoho', tag: 'zoho', priority: 10 },\n    { pattern: 'webhook', tag: 'webhook', priority: 8 },\n    { pattern: 'notion', tag: 'notion', priority: 10 },\n    { pattern: 'airtable', tag: 'airtable', priority: 10 },\n    { pattern: 'stripe|payment', tag: 'stripe', priority: 10 },\n    { pattern: 'whatsapp|wa\\\\b', tag: 'whatsapp', priority: 10 },\n    { pattern: 'xero|quickbooks', tag: 'accounting', priority: 10 },\n\n    // Function tags\n    { pattern: 'cron|schedule|daily|weekly|hourly', tag: 'scheduled', priority: 5 },\n    { pattern: 'backup|sync|mirror', tag: 'backup', priority: 7 },\n    { pattern: 'test|debug|dev|experiment', tag: 'testing', priority: 3 },\n    { pattern: 'client|customer|crm|lead', tag: 'clients', priority: 6 },\n    { pattern: 'invoice|billing|payment|quote', tag: 'finance', priority: 6 },\n    { pattern: 'report|analytics|dashboard|metric', tag: 'reporting', priority: 6 },\n    { pattern: 'n8n|cleanup|maintain|audit', tag: 'maintenance', priority: 4 },\n    { pattern: 'onboard|intake|welcome', tag: 'onboarding', priority: 7 },\n    { pattern: 'notify|alert|reminder', tag: 'notifications', priority: 5 },\n\n    // Business tags\n    { pattern: 'tas|fdnxt', tag: 'TAS', priority: 9 },\n    { pattern: 'sop|process|procedure', tag: 'SOP', priority: 7 }\n  ],\n\n  // ── FOLDER RULES ───────────────────────────────────────\n  // Each rule: { pattern: 'regex string', folder: 'Folder Name', priority: number }\n  // Highest priority match wins (only ONE folder per workflow).\n  FOLDER_RULES: [\n    { pattern: 'drive|gdrive|sheet|spreadsheet|google', folder: 'Google Workspace', priority: 10 },\n    { pattern: 'email|gmail|slack|whatsapp|communication|notify', folder: 'Communications', priority: 9 },\n    { pattern: 'zoho|crm|client|customer|lead', folder: 'CRM & Clients', priority: 8 },\n    { pattern: 'invoice|billing|payment|finance|quote|xero|stripe', folder: 'Finance', priority: 8 },\n    { pattern: 'backup|sync|mirror', folder: 'Sync & Backup', priority: 7 },\n    { pattern: 'test|debug|dev|experiment', folder: 'Development', priority: 3 },\n    { pattern: 'report|analytics|dashboard|metric', folder: 'Reporting', priority: 6 },\n    { pattern: 'n8n|cleanup|maintain|cron|schedule|audit', folder: 'System & Maintenance', priority: 5 },\n    { pattern: 'onboard|intake|welcome|sop', folder: 'Onboarding & SOPs', priority: 7 },\n    { pattern: 'tas|fdnxt', folder: 'TAS Core', priority: 4 }\n  ]\n};\n\nreturn [{ json: CONFIG }];"
+      },
+      "id": "config",
+      "name": "⚙️ Configuration",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 0]
     },
     {
       "parameters": {
@@ -21,7 +40,7 @@
       "name": "Fetch All Workflows",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [220, 0],
+      "position": [440, 0],
       "credentials": {
         "httpHeaderAuth": {
           "id": "n8n-api-key",
@@ -31,32 +50,60 @@
     },
     {
       "parameters": {
-        "jsCode": "// Tag rules: map workflow name patterns to tags\n// Adjust these to match your naming conventions\nconst TAG_RULES = [\n  { pattern: /drive|gdrive|google.?drive/i, tag: 'google-drive' },\n  { pattern: /sheet|spreadsheet/i, tag: 'google-sheets' },\n  { pattern: /email|gmail|mail/i, tag: 'email' },\n  { pattern: /slack/i, tag: 'slack' },\n  { pattern: /zoho/i, tag: 'zoho' },\n  { pattern: /webhook/i, tag: 'webhook' },\n  { pattern: /cron|schedule|daily|weekly|hourly/i, tag: 'scheduled' },\n  { pattern: /backup|sync|mirror/i, tag: 'backup' },\n  { pattern: /test|debug|dev/i, tag: 'testing' },\n  { pattern: /client|customer|crm/i, tag: 'clients' },\n  { pattern: /invoice|billing|payment/i, tag: 'finance' },\n  { pattern: /report|analytics|dashboard/i, tag: 'reporting' },\n  { pattern: /n8n|cleanup|maintain/i, tag: 'maintenance' },\n  { pattern: /tas|fdnxt/i, tag: 'TAS' },\n];\n\n// Folder rules: group workflows into logical folders\nconst FOLDER_RULES = [\n  { pattern: /drive|gdrive|sheet|spreadsheet|google/i, folder: 'Google Workspace' },\n  { pattern: /email|gmail|slack|communication/i, folder: 'Communications' },\n  { pattern: /zoho|crm|client|customer/i, folder: 'CRM' },\n  { pattern: /invoice|billing|payment|finance/i, folder: 'Finance' },\n  { pattern: /backup|sync|mirror/i, folder: 'Sync & Backup' },\n  { pattern: /test|debug|dev|experiment/i, folder: 'Development' },\n  { pattern: /report|analytics|dashboard/i, folder: 'Reporting' },\n  { pattern: /n8n|cleanup|maintain|cron|schedule/i, folder: 'System & Maintenance' },\n];\n\nconst workflows = $input.first().json.data || [];\nconst results = [];\n\nfor (const wf of workflows) {\n  const matchedTags = [];\n  let matchedFolder = 'Uncategorised';\n  \n  // Match tags\n  for (const rule of TAG_RULES) {\n    if (rule.pattern.test(wf.name)) {\n      matchedTags.push(rule.tag);\n    }\n  }\n  \n  // Match folder (first match wins)\n  for (const rule of FOLDER_RULES) {\n    if (rule.pattern.test(wf.name)) {\n      matchedFolder = rule.folder;\n      break;\n    }\n  }\n  \n  // Check existing tags\n  const existingTags = (wf.tags || []).map(t => t.name);\n  const newTags = matchedTags.filter(t => !existingTags.includes(t));\n  \n  results.push({\n    id: wf.id,\n    name: wf.name,\n    active: wf.active,\n    existingTags,\n    newTags,\n    allTags: [...new Set([...existingTags, ...matchedTags])],\n    folder: matchedFolder,\n    needsUpdate: newTags.length > 0\n  });\n}\n\nreturn results.map(r => ({ json: r }));"
+        "jsCode": "const config = $('⚙️ Configuration').first().json;\nconst workflows = $input.first().json.data || [];\n\n// Compile regex patterns with priority sorting\nconst tagRules = config.TAG_RULES\n  .map(r => ({ ...r, regex: new RegExp(r.pattern, 'i') }))\n  .sort((a, b) => b.priority - a.priority);\n\nconst folderRules = config.FOLDER_RULES\n  .map(r => ({ ...r, regex: new RegExp(r.pattern, 'i') }))\n  .sort((a, b) => b.priority - a.priority);\n\nconst results = [];\n\nfor (const wf of workflows) {\n  const matchedTags = [];\n  const tagConfidences = [];\n  let matchedFolder = 'Uncategorised';\n  let folderConfidence = 0;\n  let folderMatchedRule = 'none';\n\n  // ── Tag matching with confidence ──\n  for (const rule of tagRules) {\n    const nameMatch = rule.regex.test(wf.name);\n    // Also check node types for deeper confidence\n    const nodeTypes = (wf.nodes || []).map(n => n.type || '').join(' ');\n    const nodeMatch = rule.regex.test(nodeTypes);\n\n    if (nameMatch || nodeMatch) {\n      const confidence = nameMatch && nodeMatch ? 1.0\n        : nameMatch ? 0.8\n        : 0.5;\n\n      matchedTags.push(rule.tag);\n      tagConfidences.push({\n        tag: rule.tag,\n        confidence: Math.round(confidence * 100),\n        source: nameMatch && nodeMatch ? 'name+nodes'\n          : nameMatch ? 'name'\n          : 'nodes',\n        priority: rule.priority\n      });\n    }\n  }\n\n  // ── Folder matching (highest priority wins) ──\n  for (const rule of folderRules) {\n    if (rule.regex.test(wf.name)) {\n      matchedFolder = rule.folder;\n      folderConfidence = rule.priority * 10;\n      folderMatchedRule = rule.pattern;\n      break;\n    }\n  }\n\n  // Check existing tags\n  const existingTags = (wf.tags || []).map(t => t.name);\n  const newTags = matchedTags.filter(t => !existingTags.includes(t));\n  const allTags = [...new Set([...existingTags, ...matchedTags])];\n\n  results.push({\n    workflowId: wf.id,\n    workflowName: wf.name,\n    active: wf.active,\n    nodeCount: (wf.nodes || []).length,\n    existingTags: existingTags.join(', '),\n    newTags: newTags.join(', '),\n    allTags: allTags.join(', '),\n    newTagCount: newTags.length,\n    folder: matchedFolder,\n    folderConfidence,\n    folderMatchedRule,\n    tagConfidences,\n    needsUpdate: newTags.length > 0,\n    timestamp: new Date().toISOString()\n  });\n}\n\n// Sort: items needing updates first\nresults.sort((a, b) => b.newTagCount - a.newTagCount);\n\nreturn results.map(r => ({ json: r }));"
       },
       "id": "classify-workflows",
       "name": "Classify by Tags & Folders",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [440, 0]
+      "position": [660, 0]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": { "__rl": true, "mode": "id", "value": "={{ $('⚙️ Configuration').first().json.SHEET_ID }}" },
+        "sheetName": { "__rl": true, "mode": "name", "value": "Workflow_Organisation" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Timestamp": "={{ $json.timestamp }}",
+            "Workflow ID": "={{ $json.workflowId }}",
+            "Workflow Name": "={{ $json.workflowName }}",
+            "Active": "={{ $json.active }}",
+            "Node Count": "={{ $json.nodeCount }}",
+            "Existing Tags": "={{ $json.existingTags }}",
+            "New Tags Applied": "={{ $json.newTags }}",
+            "All Tags": "={{ $json.allTags }}",
+            "Folder": "={{ $json.folder }}",
+            "Folder Confidence": "={{ $json.folderConfidence }}",
+            "Folder Rule": "={{ $json.folderMatchedRule }}",
+            "Needed Update": "={{ $json.needsUpdate }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "log-to-sheet",
+      "name": "Log to Audit Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [880, -140],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "google-sheets-cred",
+          "name": "Google Sheets OAuth2"
+        }
+      }
     },
     {
       "parameters": {
         "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict"
-          },
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
           "conditions": [
             {
               "id": "needs-update",
               "leftValue": "={{ $json.needsUpdate }}",
               "rightValue": true,
-              "operator": {
-                "type": "boolean",
-                "operation": "equals",
-                "singleValue": true
-              }
+              "operator": { "type": "boolean", "operation": "equals", "singleValue": true }
             }
           ],
           "combinator": "and"
@@ -67,44 +114,49 @@
       "name": "Needs New Tags?",
       "type": "n8n-nodes-base.filter",
       "typeVersion": 2,
-      "position": [660, -120]
+      "position": [880, 0]
     },
     {
       "parameters": {
-        "jsCode": "// Ensure tags exist in n8n, then apply to workflow\nconst BASE_URL = $env.N8N_BASE_URL;\nconst API_KEY = $env.N8N_API_KEY;\nconst wf = $input.first().json;\n\n// Step 1: Get all existing tags\nconst tagsResp = await this.helpers.httpRequest({\n  method: 'GET',\n  url: `${BASE_URL}/api/v1/tags`,\n  headers: { 'X-N8N-API-KEY': API_KEY }\n});\nconst existingTags = tagsResp.data || tagsResp || [];\nconst tagMap = {};\nfor (const t of existingTags) {\n  tagMap[t.name] = t.id;\n}\n\n// Step 2: Create any missing tags\nfor (const tagName of wf.newTags) {\n  if (!tagMap[tagName]) {\n    try {\n      const created = await this.helpers.httpRequest({\n        method: 'POST',\n        url: `${BASE_URL}/api/v1/tags`,\n        headers: { 'X-N8N-API-KEY': API_KEY, 'Content-Type': 'application/json' },\n        body: { name: tagName }\n      });\n      tagMap[tagName] = created.id;\n    } catch (err) {\n      // Tag might already exist\n    }\n  }\n}\n\n// Step 3: Update workflow with all tags\nconst tagIds = wf.allTags.map(t => tagMap[t]).filter(Boolean);\ntry {\n  await this.helpers.httpRequest({\n    method: 'PATCH',\n    url: `${BASE_URL}/api/v1/workflows/${wf.id}`,\n    headers: { 'X-N8N-API-KEY': API_KEY, 'Content-Type': 'application/json' },\n    body: { tags: tagIds.map(id => ({ id })) }\n  });\n} catch (err) {\n  return [{ json: { ...wf, tagUpdateStatus: 'FAILED', error: err.message } }];\n}\n\nreturn [{ json: { ...wf, tagUpdateStatus: 'OK', appliedTags: wf.allTags } }];"
+        "jsCode": "const config = $('⚙️ Configuration').first().json;\n\nif (!config.AUTO_APPLY_TAGS) {\n  return $input.all().map(i => ({ json: { ...i.json, tagUpdateStatus: 'SKIPPED_DRY_RUN' } }));\n}\n\nconst BASE_URL = $env.N8N_BASE_URL;\nconst API_KEY = $env.N8N_API_KEY;\n\n// Step 1: Get all existing tags\nlet tagsResp;\ntry {\n  tagsResp = await this.helpers.httpRequest({\n    method: 'GET',\n    url: `${BASE_URL}/api/v1/tags`,\n    headers: { 'X-N8N-API-KEY': API_KEY }\n  });\n} catch (err) {\n  return $input.all().map(i => ({ json: { ...i.json, tagUpdateStatus: 'FAILED_FETCH_TAGS', error: err.message } }));\n}\n\nconst existingTags = tagsResp.data || tagsResp || [];\nconst tagMap = {};\nfor (const t of existingTags) {\n  tagMap[t.name] = t.id;\n}\n\nconst results = [];\n\nfor (const item of $input.all()) {\n  const wf = item.json;\n  const allTagNames = wf.allTags.split(', ').filter(Boolean);\n\n  // Create missing tags\n  for (const tagName of allTagNames) {\n    if (!tagMap[tagName]) {\n      try {\n        const created = await this.helpers.httpRequest({\n          method: 'POST',\n          url: `${BASE_URL}/api/v1/tags`,\n          headers: { 'X-N8N-API-KEY': API_KEY, 'Content-Type': 'application/json' },\n          body: { name: tagName }\n        });\n        tagMap[tagName] = created.id;\n      } catch (err) {\n        // Tag may already exist from concurrent creation\n      }\n    }\n  }\n\n  // Apply tags to workflow\n  const tagIds = allTagNames.map(t => tagMap[t]).filter(Boolean);\n  try {\n    await this.helpers.httpRequest({\n      method: 'PATCH',\n      url: `${BASE_URL}/api/v1/workflows/${wf.workflowId}`,\n      headers: { 'X-N8N-API-KEY': API_KEY, 'Content-Type': 'application/json' },\n      body: { tags: tagIds.map(id => ({ id })) }\n    });\n    results.push({ json: { ...wf, tagUpdateStatus: 'OK' } });\n  } catch (err) {\n    results.push({ json: { ...wf, tagUpdateStatus: 'FAILED', error: err.message } });\n  }\n}\n\nreturn results;"
       },
       "id": "apply-tags",
       "name": "Create & Apply Tags",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [880, -120]
+      "position": [1100, 0]
     },
     {
       "parameters": {
-        "jsCode": "// Build a summary report of all workflows grouped by folder\nconst items = $input.all();\nconst folders = {};\n\nfor (const item of items) {\n  const wf = item.json;\n  const folder = wf.folder || 'Uncategorised';\n  if (!folders[folder]) folders[folder] = [];\n  folders[folder].push({\n    name: wf.name,\n    id: wf.id,\n    active: wf.active,\n    tags: wf.allTags || wf.existingTags || [],\n    needsUpdate: wf.needsUpdate\n  });\n}\n\nconst folderSummary = Object.entries(folders).map(([name, workflows]) => ({\n  folder: name,\n  count: workflows.length,\n  workflows\n})).sort((a, b) => b.count - a.count);\n\nreturn [{\n  json: {\n    totalWorkflows: items.length,\n    totalFolders: folderSummary.length,\n    taggedCount: items.filter(i => i.json.needsUpdate).length,\n    folders: folderSummary,\n    runAt: new Date().toISOString()\n  }\n}];"
+        "jsCode": "const allItems = $('Classify by Tags & Folders').all();\nconst config = $('⚙️ Configuration').first().json;\n\n// Group by folder\nconst folders = {};\nfor (const item of allItems) {\n  const wf = item.json;\n  const folder = wf.folder || 'Uncategorised';\n  if (!folders[folder]) folders[folder] = [];\n  folders[folder].push(wf);\n}\n\nconst folderSummary = Object.entries(folders)\n  .map(([name, workflows]) => ({\n    folder: name,\n    count: workflows.length,\n    activeCount: workflows.filter(w => w.active).length,\n    workflows\n  }))\n  .sort((a, b) => b.count - a.count);\n\n// Build stats\nconst totalTagged = allItems.filter(i => i.json.needsUpdate).length;\nconst totalUntagged = allItems.filter(i => !i.json.allTags).length;\n\n// Build HTML\nconst folderHtml = folderSummary.map(f => {\n  const rows = f.workflows.map(w => {\n    const status = w.active ? '✅' : '⏸️';\n    const confidences = (w.tagConfidences || []).map(tc =>\n      `${tc.tag}(${tc.confidence}%)`\n    ).join(', ');\n    return `<tr><td>${status}</td><td>${w.workflowName}</td><td>${w.allTags || 'none'}</td><td>${confidences || '-'}</td><td>${w.needsUpdate ? '🆕 YES' : 'no'}</td></tr>`;\n  }).join('');\n\n  return `<h3>📁 ${f.folder} (${f.count} workflows, ${f.activeCount} active)</h3>\n    <table border=\"1\" cellpadding=\"5\" style=\"border-collapse:collapse;width:100%\">\n    <tr><th>St</th><th>Name</th><th>Tags</th><th>Confidence</th><th>Updated?</th></tr>\n    ${rows}</table>`;\n}).join('<hr>');\n\nconst html = `\n<h2>📂 TAS Workflow Organisation Report</h2>\n<p><strong>Run:</strong> ${new Date().toISOString()}</p>\n<p><strong>Mode:</strong> ${config.AUTO_APPLY_TAGS ? '🟢 LIVE (tags applied)' : '🔵 DRY RUN (report only)'}</p>\n<hr>\n<table style=\"border-collapse:collapse;width:100%\">\n<tr><th>Metric</th><th>Count</th></tr>\n<tr><td>Total workflows</td><td><strong>${allItems.length}</strong></td></tr>\n<tr><td>📁 Folders identified</td><td><strong>${folderSummary.length}</strong></td></tr>\n<tr><td>🏷️ Newly tagged this run</td><td><strong>${totalTagged}</strong></td></tr>\n<tr><td>❓ No tags matched</td><td><strong>${totalUntagged}</strong></td></tr>\n</table>\n<hr>\n${folderHtml}\n<hr>\n<p><em>Full audit trail logged to Google Sheet: TAS_N8N_Audit → Workflow_Organisation</em></p>\n<p><em>To create actual N8N folders, use these groupings as a guide.</em></p>\n`;\n\nreturn [{\n  json: {\n    html,\n    recipient: config.EMAIL_RECIPIENT,\n    subject: `TAS N8N Audit: ${allItems.length} workflows organised into ${folderSummary.length} folders, ${totalTagged} newly tagged`\n  }\n}];"
       },
-      "id": "build-folder-report",
-      "name": "Build Folder Report",
+      "id": "build-email",
+      "name": "Build Email Report",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [660, 120]
+      "position": [880, 160]
     },
     {
       "parameters": {
-        "sendTo": "={{ $env.GOOGLE_ACCOUNT || 'fabian@fdnxt.com' }}",
-        "subject": "TAS N8N: Workflow Organisation Report — {{ $json.totalWorkflows }} workflows in {{ $json.totalFolders }} folders",
-        "message": "=<h2>Workflow Organisation Report</h2>\n<p><strong>Run at:</strong> {{ $json.runAt }}</p>\n<p><strong>Total workflows:</strong> {{ $json.totalWorkflows }}</p>\n<p><strong>Logical folders:</strong> {{ $json.totalFolders }}</p>\n<p><strong>Newly tagged:</strong> {{ $json.taggedCount }}</p>\n<hr>\n{{ $json.folders.map(f => '<h3>' + f.folder + ' (' + f.count + ')</h3><ul>' + f.workflows.map(w => '<li>' + (w.active ? '&#9989;' : '&#10060;') + ' ' + w.name + ' [' + w.tags.join(', ') + ']</li>').join('') + '</ul>').join('') }}\n<hr>\n<p><em>Use these folder groupings to organise workflows in N8N manually, or create actual N8N folders matching these names.</em></p>",
+        "sendTo": "={{ $json.recipient }}",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.html }}",
         "options": {}
       },
-      "id": "send-org-report",
-      "name": "Email Organisation Report",
+      "id": "send-email",
+      "name": "Send Email Report",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
-      "position": [880, 120]
+      "position": [1100, 160]
     }
   ],
   "connections": {
-    "Run Manually": {
+    "Weekly Monday 7AM": {
+      "main": [
+        [{ "node": "⚙️ Configuration", "type": "main", "index": 0 }]
+      ]
+    },
+    "⚙️ Configuration": {
       "main": [
         [{ "node": "Fetch All Workflows", "type": "main", "index": 0 }]
       ]
@@ -117,8 +169,9 @@
     "Classify by Tags & Folders": {
       "main": [
         [
+          { "node": "Log to Audit Sheet", "type": "main", "index": 0 },
           { "node": "Needs New Tags?", "type": "main", "index": 0 },
-          { "node": "Build Folder Report", "type": "main", "index": 0 }
+          { "node": "Build Email Report", "type": "main", "index": 0 }
         ]
       ]
     },
@@ -127,9 +180,9 @@
         [{ "node": "Create & Apply Tags", "type": "main", "index": 0 }]
       ]
     },
-    "Build Folder Report": {
+    "Build Email Report": {
       "main": [
-        [{ "node": "Email Organisation Report", "type": "main", "index": 0 }]
+        [{ "node": "Send Email Report", "type": "main", "index": 0 }]
       ]
     }
   },
@@ -139,6 +192,6 @@
   "tags": [
     { "name": "TAS" },
     { "name": "maintenance" },
-    { "name": "drive-cleanup" }
+    { "name": "audit" }
   ]
 }
