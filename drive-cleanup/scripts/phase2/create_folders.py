@@ -85,7 +85,21 @@ def run(dry_run=False):
     except Exception:
         pass  # non-fatal if sheet logging fails
 
-    service = get_drive_service()
+    try:
+        service = get_drive_service()
+    except KeyError as e:
+        print(f"\n  FATAL: Missing environment variable {e}")
+        print("  Phase 2 requires Google OAuth credentials.")
+        print("  Copy .env.example to .env and fill in:")
+        print("    GOOGLE_CLIENT_ID=<your-client-id>")
+        print("    GOOGLE_CLIENT_SECRET=<your-client-secret>")
+        print("    GOOGLE_REFRESH_TOKEN=<your-refresh-token>")
+        print("\n  Or provide a token.json file from a previous OAuth flow.")
+        return {}
+    except Exception as e:
+        print(f"\n  FATAL: Could not authenticate with Google Drive: {e}")
+        return {}
+
     created_count = 0
     skipped_count = 0
     error_count = 0
