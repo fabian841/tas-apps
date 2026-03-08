@@ -515,6 +515,9 @@ body{font-family:var(--body);background:var(--void);color:var(--white);min-heigh
 
       <div class="nav-sec">Performance</div>
       <div class="nav-item" onclick="nav('safety')"><span class="nav-icon">🏆</span>Safety Score</div>
+
+      <div class="nav-sec">Resources</div>
+      <div class="nav-item" onclick="nav('marketing')"><span class="nav-icon">📣</span>Marketing Repos<span class="nbadge nb-c">NEW</span></div>
     </div>
 
     <!-- CONTENT -->
@@ -995,6 +998,26 @@ body{font-family:var(--body);background:var(--void);color:var(--white);min-heigh
           <div class="lr"><div class="lt" style="color:var(--grey);font-weight:700;">🥈</div><div style="flex:1;font-size:11px;"><strong>M. Chen</strong> — ITCP · 0 incidents · 95% inspection rate</div><div style="font-family:var(--font);font-size:15px;font-weight:700;color:var(--grey);">88</div></div>
           <div class="lr" style="border:none;"><div class="lt" style="color:var(--amber);font-weight:700;">🥉</div><div style="flex:1;font-size:11px;"><strong>T. Williams</strong> — ITCP · 1 near-miss reported · 92% rate</div><div style="font-family:var(--font);font-size:15px;font-weight:700;color:var(--amber);">82</div></div>
         </div>
+      </div>
+
+      <!-- ═══ MARKETING REPOS ═══ -->
+      <div class="page" id="page-marketing">
+        <div class="ph">
+          <div>
+            <div class="pt">Marketing <span>Repos</span></div>
+            <div class="ps">Open-source marketing tools and resources from GitHub</div>
+          </div>
+          <div style="display:flex;gap:7px;flex-wrap:wrap;">
+            <button class="btn btn-o btn-sm" onclick="filterMktg('all')">All</button>
+            <button class="btn btn-o btn-sm" onclick="filterMktg('automation')">Automation</button>
+            <button class="btn btn-o btn-sm" onclick="filterMktg('email')">Email</button>
+            <button class="btn btn-o btn-sm" onclick="filterMktg('seo')">SEO</button>
+            <button class="btn btn-o btn-sm" onclick="filterMktg('crm')">CRM</button>
+            <button class="btn btn-o btn-sm" onclick="filterMktg('analytics')">Analytics</button>
+            <button class="btn btn-o btn-sm" onclick="filterMktg('resources')">Resources</button>
+          </div>
+        </div>
+        <div id="mktg-cards"></div>
       </div>
 
     </div><!-- /content -->
@@ -1713,6 +1736,60 @@ async function sendAI(){
   msgs.scrollTop=msgs.scrollHeight;
 }
 
+// ── MARKETING REPOS ───────────────────────────────────────────
+const mktgRepos=[
+  {name:'Mautic',repo:'mautic/mautic',desc:'Open-source marketing automation platform. Email campaigns, lead management, landing pages, social media monitoring, and CRM integration.',cat:'automation',stars:'7.5k',lang:'PHP'},
+  {name:'BillionMail',repo:'aaPanel/BillionMail',desc:'Self-hosted MailServer, Newsletter, and Email Marketing platform. Unlimited sending, advanced analytics for delivery/open/click-through rates.',cat:'email',stars:'6.8k',lang:'Python'},
+  {name:'Plunk',repo:'useplunk/plunk',desc:'Open-source email platform with event-triggered emails, developer-first API, and built-in analytics. Free tier with 3,000 emails/month.',cat:'email',stars:'3.2k',lang:'TypeScript'},
+  {name:'phpList',repo:'phpList/phplist3',desc:'Fully functional email marketing manager used in 95 countries, 20 languages. Analytics, segmentation, content personalisation, and bounce processing.',cat:'email',stars:'833',lang:'PHP'},
+  {name:'Unsend',repo:'unsend-dev/unsend',desc:'Self-hosted email sending platform for developers and SMBs. Deploy via Docker, Kubernetes, AWS, or GCP.',cat:'email',stars:'1.1k',lang:'TypeScript'},
+  {name:'Email Dashboard',repo:'Email-Dashboard/Email-Marketing',desc:'Customizable emailing platform with personalised emails, mass emailing, and Email CRM built with Docker and Rails.',cat:'email',stars:'580',lang:'Ruby'},
+  {name:'Matomo',repo:'matomo-org/matomo',desc:'Leading open-source web analytics alternative to Google Analytics. Complete data ownership, built-in privacy, GDPR compliant.',cat:'analytics',stars:'20k',lang:'PHP'},
+  {name:'Plausible Analytics',repo:'plausible/analytics',desc:'Simple, lightweight, and privacy-friendly web analytics. No cookies, fully GDPR/CCPA/PECR compliant.',cat:'analytics',stars:'21k',lang:'Elixir'},
+  {name:'Umami',repo:'umami-software/umami',desc:'Privacy-focused alternative to Google Analytics. Simple, fast, and easy to self-host. No tracking cookies required.',cat:'analytics',stars:'24k',lang:'JavaScript'},
+  {name:'PostHog',repo:'PostHog/posthog',desc:'All-in-one product analytics suite with event tracking, session recording, feature flags, A/B testing, and data pipelines.',cat:'analytics',stars:'23k',lang:'TypeScript'},
+  {name:'Twenty CRM',repo:'twentyhq/twenty',desc:'Modern open-source CRM built with React, TypeScript, and GraphQL. Flexible data model, timeline, and workflow automation.',cat:'crm',stars:'24k',lang:'TypeScript'},
+  {name:'Frappe CRM',repo:'frappe/crm',desc:'Full-featured CRM built on the Frappe framework with Vue.js. Contacts, deals, pipelines, email integration, and reporting.',cat:'crm',stars:'2.3k',lang:'Python'},
+  {name:'EcommerceTools',repo:'practical-data-science/ecommercetools',desc:'Python data science toolkit for ecommerce, marketing science, and technical SEO analysis and modelling.',cat:'seo',stars:'520',lang:'Python'},
+  {name:'Chatwoot',repo:'chatwoot/chatwoot',desc:'Open-source customer engagement platform. Live chat, email, social media, and WhatsApp support with a unified inbox.',cat:'automation',stars:'22k',lang:'Ruby'},
+  {name:'Listmonk',repo:'knadh/listmonk',desc:'High-performance self-hosted newsletter and mailing list manager with a modern dashboard. Single binary deployment.',cat:'email',stars:'16k',lang:'Go'},
+  {name:'Startup Marketing Checklist',repo:'draftdev/startup-marketing-checklist',desc:'A comprehensive checklist of marketing tactics for startups covering PR, content, social media, SEO, and paid advertising.',cat:'resources',stars:'5.6k',lang:'Markdown'},
+  {name:'1000UserGuide',repo:'1000UserGuide/1000UserGuide',desc:'300+ curated channels for indie developers and entrepreneurs to promote products and acquire first users.',cat:'resources',stars:'3.6k',lang:'Markdown'},
+  {name:'Awesome Marketing',repo:'marketingtoolslist/awesome-marketing',desc:'Curated list of marketing tools and resources covering SEO, AI agents, marketing analytics, and GTM engineering.',cat:'resources',stars:'1.2k',lang:'Markdown'},
+  {name:'Awesome Digital Marketing',repo:'paulbradish/awesome-digital-marketing',desc:'Curated list of digital marketing guides, resources, services, and tools across all marketing disciplines.',cat:'resources',stars:'450',lang:'Markdown'},
+  {name:'MagicPush',repo:'nicklama/magicpush',desc:'Open-source push notification service for developers. Segment users, schedule campaigns, and track delivery metrics.',cat:'automation',stars:'228',lang:'JavaScript'},
+];
+const catColors={automation:'bc',email:'bb',seo:'bg',crm:'ba',analytics:'br',resources:'bx'};
+const catLabels={automation:'Automation',email:'Email Marketing',seo:'SEO',crm:'CRM',analytics:'Analytics',resources:'Resources'};
+let mktgFilter='all';
+function filterMktg(cat){
+  mktgFilter=cat;
+  document.querySelectorAll('#page-marketing .btn-o').forEach(b=>{b.style.borderColor='';b.style.color='';});
+  event.target.style.borderColor='var(--cyan)';event.target.style.color='var(--cyan)';
+  renderMktg();
+}
+function renderMktg(){
+  const c=document.getElementById('mktg-cards');if(!c)return;
+  const list=mktgFilter==='all'?mktgRepos:mktgRepos.filter(r=>r.cat===mktgFilter);
+  if(!list.length){c.innerHTML='<div style="color:var(--grey);font-size:12px;padding:22px;">No repos match this filter.</div>';return;}
+  c.innerHTML='<div class="g2">'+list.map(r=>`
+    <div class="card" style="transition:transform .2s;cursor:pointer;" onmouseenter="this.style.transform='translateY(-2px)';this.style.borderColor='var(--blue-hi)'" onmouseleave="this.style.transform='';this.style.borderColor=''">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <div style="font-size:14px;font-weight:700;">${r.name}</div>
+        <div style="display:flex;gap:5px;align-items:center;">
+          <span class="badge ${catColors[r.cat]}">${catLabels[r.cat]}</span>
+          <span class="badge bx">${r.lang}</span>
+        </div>
+      </div>
+      <div style="font-family:var(--mono);font-size:9px;color:var(--cyan);margin-bottom:8px;">${r.repo}</div>
+      <div style="font-size:11px;color:var(--grey);line-height:1.6;margin-bottom:12px;">${r.desc}</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div style="font-family:var(--mono);font-size:10px;color:var(--gold);">★ ${r.stars}</div>
+        <a href="https://github.com/${r.repo}" target="_blank" class="btn btn-p btn-sm" style="text-decoration:none;">View on GitHub ↗</a>
+      </div>
+    </div>`).join('')+'</div>';
+}
+
 // ── MISC ──────────────────────────────────────────────────────
 function showIncForm(){document.getElementById('inc-form').style.display='block';}
 function triggerPhoto(){toast('Photo capture — connect to device camera');}
@@ -1743,6 +1820,7 @@ buildPackUp();
 initBriefing();
 initAdvisor();
 renderTGS(tgsLib);
+renderMktg();
 document.getElementById('tmp-date').valueAsDate=new Date();
 
 // Welcome toast
