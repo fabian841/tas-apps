@@ -1,16 +1,18 @@
 """
 Google Drive API client wrapper.
-Handles authentication, rate limiting, and common operations.
+Handles authentication, rate limiting, retries, and common operations.
 """
 import os
 import time
 import json
+import functools
 import httplib2
 from dotenv import load_dotenv
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
 import requests as _requests
 from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 import google_auth_httplib2
 
 load_dotenv()
@@ -24,6 +26,11 @@ _request_times = []
 RATE_LIMIT = 100
 RATE_WINDOW = 10.0
 MIN_DELAY = 0.1  # sleep(0.1) between bulk API calls
+
+# Retry config
+MAX_RETRIES = 4
+RETRYABLE_STATUS_CODES = {429, 500, 502, 503}
+INITIAL_BACKOFF = 2  # seconds
 
 
 def _rate_limit():
@@ -39,6 +46,35 @@ def _rate_limit():
             print(f"  [rate-limit] sleeping {sleep_time:.1f}s")
             time.sleep(sleep_time)
     time.sleep(MIN_DELAY)
+
+
+def retry_on_error(func):
+    """Decorator: retry Google API calls with exponential backoff on transient errors."""
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        last_error = None
+        for attempt in range(MAX_RETRIES + 1):
+            try:
+                return func(*args, **kwargs)
+            except HttpError as e:
+                status = e.resp.status if hasattr(e, "resp") else 0
+                if status in RETRYABLE_STATUS_CODES and attempt < MAX_RETRIES:
+                    wait = INITIAL_BACKOFF * (2 ** attempt)
+                    print(f"  [retry] {func.__name__} got {status}, retrying in {wait}s (attempt {attempt + 1}/{MAX_RETRIES})")
+                    time.sleep(wait)
+                    last_error = e
+                else:
+                    raise
+            except (ConnectionError, TimeoutError, OSError) as e:
+                if attempt < MAX_RETRIES:
+                    wait = INITIAL_BACKOFF * (2 ** attempt)
+                    print(f"  [retry] {func.__name__} network error, retrying in {wait}s (attempt {attempt + 1}/{MAX_RETRIES})")
+                    time.sleep(wait)
+                    last_error = e
+                else:
+                    raise
+        raise last_error
+    return wrapper
 
 
 def get_credentials(scopes=None):
@@ -98,6 +134,7 @@ def get_sheets_service():
     return _build_service("sheets", "v4", get_credentials())
 
 
+@retry_on_error
 def list_files_in_folder(service, folder_id, page_size=100):
     """List all files/folders in a given folder."""
     _rate_limit()
@@ -118,6 +155,7 @@ def list_files_in_folder(service, folder_id, page_size=100):
     return results
 
 
+@retry_on_error
 def create_folder(service, name, parent_id):
     """Create a folder and return its ID."""
     _rate_limit()
@@ -130,6 +168,7 @@ def create_folder(service, name, parent_id):
     return folder["id"]
 
 
+@retry_on_error
 def move_file(service, file_id, new_parent_id, current_parent_id=None):
     """Move a file to a new parent folder (no copy-and-delete)."""
     _rate_limit()
@@ -139,6 +178,7 @@ def move_file(service, file_id, new_parent_id, current_parent_id=None):
     return service.files().update(fileId=file_id, **kwargs).execute()
 
 
+@retry_on_error
 def rename_file(service, file_id, new_name):
     """Rename a file."""
     _rate_limit()
@@ -147,6 +187,7 @@ def rename_file(service, file_id, new_name):
     ).execute()
 
 
+@retry_on_error
 def trash_file(service, file_id):
     """Move a file/folder to Google Trash (not permanent delete)."""
     _rate_limit()
@@ -155,6 +196,7 @@ def trash_file(service, file_id):
     ).execute()
 
 
+@retry_on_error
 def get_file_content(service, file_id, mime_type):
     """Read first ~500 words of a Google Doc or text file."""
     _rate_limit()
@@ -172,6 +214,7 @@ def get_file_content(service, file_id, mime_type):
     return " ".join(words[:500])
 
 
+@retry_on_error
 def find_folder_by_name(service, name, parent_id):
     """Find a folder by name within a parent. Returns ID or None."""
     _rate_limit()

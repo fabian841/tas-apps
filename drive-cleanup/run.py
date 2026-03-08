@@ -18,6 +18,7 @@ TAS Drive Cleanup — Master Runner
 Usage:
   python run.py phase1          # n8n cleanup
   python run.py phase2          # Create folder structure
+  python run.py phase2-dry      # Dry run — preview folder plan only
   python run.py phase3-test     # Test filing agent (dry run)
   python run.py phase3-once     # Run filing agent once
   python run.py phase3-watch    # Run filing agent (continuous)
@@ -43,6 +44,9 @@ Verify success criteria after each step before proceeding.
     elif cmd == "phase2":
         from scripts.phase2.create_folders import run
         run()
+    elif cmd == "phase2-dry":
+        from scripts.phase2.create_folders import run
+        run(dry_run=True)
     elif cmd == "phase3-test":
         from scripts.phase3.filing_agent import test_filing
         test_filing()

@@ -110,9 +110,24 @@ def _find_or_create_sheet():
         "sheets": [{"properties": {"title": tab}} for tab in TABS],
     }
     spreadsheet = sheets.spreadsheets().create(
-        body=body, fields="spreadsheetId"
+        body=body, fields="spreadsheetId,sheets.properties"
     ).execute()
     sheet_id = spreadsheet["spreadsheetId"]
+
+    # Delete any default sheets (e.g. "Sheet1") that aren't in our TABS list
+    existing_sheets = spreadsheet.get("sheets", [])
+    delete_requests = []
+    for s in existing_sheets:
+        title = s["properties"]["title"]
+        if title not in TABS:
+            delete_requests.append({
+                "deleteSheet": {"sheetId": s["properties"]["sheetId"]}
+            })
+    if delete_requests:
+        sheets.spreadsheets().batchUpdate(
+            spreadsheetId=sheet_id,
+            body={"requests": delete_requests},
+        ).execute()
 
     # Move into workspace root folder
     drive.files().update(
