@@ -17,7 +17,8 @@ load_dotenv()
 
 DRIVE_SCOPES = ["https://www.googleapis.com/auth/drive"]
 SHEETS_SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
-SCOPES = DRIVE_SCOPES + SHEETS_SCOPES
+GMAIL_SCOPES = ["https://www.googleapis.com/auth/gmail.modify"]
+SCOPES = DRIVE_SCOPES + SHEETS_SCOPES + GMAIL_SCOPES
 
 # Rate limiting: max 100 requests per 10 seconds
 _request_times = []
@@ -96,6 +97,11 @@ def get_drive_service():
 def get_sheets_service():
     """Return authenticated Google Sheets v4 service."""
     return _build_service("sheets", "v4", get_credentials())
+
+
+def get_gmail_service():
+    """Return authenticated Gmail v1 service."""
+    return _build_service("gmail", "v1", get_credentials())
 
 
 def list_files_in_folder(service, folder_id, page_size=100):

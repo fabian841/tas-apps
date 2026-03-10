@@ -29,9 +29,11 @@ Usage:
   python run.py phase4f         # Archive old files
   python run.py phase5-once     # Loose file detector (once)
   python run.py phase5-schedule # Loose file detector (daily)
+  python run.py gmail-once      # Gmail email filing agent (once)
+  python run.py gmail-watch     # Gmail email filing agent (continuous)
 
 IMPORTANT: Execute in order. Phase 1 -> 2 -> 3 -> 4 -> 5.
-Verify success criteria after each step before proceeding.
+Phase 6 (Gmail agent) can run independently once Phase 2 folders exist.
 """)
         return
 
@@ -76,6 +78,12 @@ Verify success criteria after each step before proceeding.
     elif cmd == "phase5-schedule":
         from scripts.phase5.loose_file_detector import run_scheduled
         run_scheduled()
+    elif cmd == "gmail-once":
+        from scripts.phase6.gmail_agent import run_once
+        run_once()
+    elif cmd == "gmail-watch":
+        from scripts.phase6.gmail_agent import run_watcher
+        run_watcher()
     else:
         print(f"Unknown command: {cmd}")
         print("Run 'python run.py' without arguments for help.")
